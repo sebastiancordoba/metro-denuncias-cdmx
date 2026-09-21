@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robos denunciados en el Metro de la CDMX: conteo contra tasa</title>
-<meta name="description" content="Las listas oficiales ordenan las estaciones del Metro por número de denuncias. Por denuncias por millón de entradas, el orden cambia.">
+<meta name="description" content="Las listas oficiales ordenan las estaciones del Metro por número de denuncias de robo. Por pasajero, el orden cambia. Datos hasta el 31 de enero de 2025.">
 <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
 <header>
   <div class="titulo">
-    <h1>Metro de la CDMX: ¿dónde se denuncian más robos, o dónde se denuncian más <em>por pasajero</em>?</h1>
-    <p class="corte">Datos hasta el <strong id="corte">…</strong> · hechos de 2019 a 2024 · <span id="estado-red" class="estado"></span></p>
+    <h1>Las listas oficiales ordenan las estaciones del Metro por <em>conteo</em> de robos denunciados. Por pasajero, el orden cambia.</h1>
+    <p class="corte">Datos hasta el <strong>31 de enero de 2025</strong> · hechos de 2019 a 2024 <span id="estado-red" class="estado"></span></p>
   </div>
   <div class="interruptor" role="group" aria-label="Ordenar por">
     <span class="interruptor-etiqueta">Ordenar las estaciones por</span>
@@ -24,20 +24,23 @@
   <h2>Qué mide esto</h2>
   <ul>
     <li><strong>Son DENUNCIAS, no robos.</strong> Carpetas de investigación de la Fiscalía por «robo a pasajero a bordo de Metro». La mayor parte de los robos no se denuncia.</li>
-    <li><strong>Las listas oficiales y de prensa ordenan por conteo</strong>, que en buena parte es ordenar por afluencia. Aquí se compara con la tasa por millón de entradas.</li>
-    <li><strong>Solo se mide donde se puede:</strong> <span id="n-a">124</span> estaciones sin correspondencia. En las correspondencias, quien transborda no pasa por el torniquete y la tasa no es comparable.</li>
-    <li><strong>Datos hasta el <span id="corte2">…</span>.</strong> El <span id="pct-sin">19.1</span> % de las carpetas no se pudo ubicar en una estación.</li>
+    <li><strong>Las listas oficiales y de prensa ordenan por conteo</strong>, que en buena parte es ordenar por afluencia. Aquí se compara con la tasa de denuncias por millón de entradas, <strong>encogida</strong> por un modelo que descuenta la poca evidencia de cada estación.</li>
+    <li><strong>Solo se mide donde se puede:</strong> 124 estaciones sin correspondencia. De esas, <strong>solo 25 se distinguen</strong> de una estación típica (▲ 14, ▼ 11); 99 no.</li>
+    <li><strong>Rombos grises, correspondencias:</strong> quien transborda no pasa por el torniquete, así que su tasa no es comparable. No se ordenan.</li>
+    <li><strong>Hidalgo y Guerrero</strong> (rombo de borde negro) tienen unas tres veces la tasa de denuncias de correspondencias comparables. El transbordo no alcanza a explicarlo y tener una agencia del Ministerio Público cerca tampoco: es un hallazgo sin explicación.</li>
+    <li><strong>Datos hasta el 31 de enero de 2025.</strong> El 19.1 % de las carpetas no se pudo ubicar en una estación.</li>
   </ul>
 </section>
 
 <main>
   <section id="mapa-caja" aria-label="Mapa de la red">
     <div class="mapa-controles">
+      <button type="button" id="zoom-centro" class="ancho" aria-label="Acercar al centro">Centro</button>
       <button type="button" id="zoom-mas" aria-label="Acercar">+</button>
       <button type="button" id="zoom-menos" aria-label="Alejar">−</button>
       <button type="button" id="zoom-todo" aria-label="Ver toda la red">⤢</button>
     </div>
-    <svg id="mapa" role="img" aria-label="Mapa de la red del Metro con las estaciones coloreadas por razón de denuncias observadas entre esperadas"></svg>
+    <svg id="mapa" role="img" aria-label="Mapa de la red del Metro. Triángulo hacia arriba: tasa de denuncias distinguible por arriba de la estación típica; triángulo hacia abajo: por abajo; círculo: no distinguible."></svg>
     <div id="leyenda"></div>
     <div id="tooltip" hidden></div>
   </section>
@@ -50,16 +53,33 @@
     <section id="lista-caja">
       <div class="lista-cabeza">
         <h2 id="lista-titulo">Estaciones sin correspondencia</h2>
-        <label class="casilla"><input type="checkbox" id="ver-insuficientes"> Ver también las de menos de <span id="min-d">15</span> denuncias <em>(evidencia insuficiente)</em></label>
+        <p id="lista-nota" class="nota"></p>
+        <label class="casilla"><input type="checkbox" id="ocultar-insuficientes"> Ocultar las de menos de 15 denuncias <em>(evidencia insuficiente)</em></label>
       </div>
-      <p id="lista-nota" class="nota"></p>
       <ol id="lista"></ol>
     </section>
   </aside>
 </main>
 
+<!-- Bloque estático. Los cuatro números están escritos a mano; src/metro/06_app_datos.py truena si dejan de coincidir con el modelo. -->
+<section id="dos-reglas" aria-label="Dos reglas para elegir dónde desplegar">
+  <h2>Dos reglas, dos objetivos: ninguna lista es «la correcta»</h2>
+  <p>El orden por conteo <strong>no está equivocado: optimiza otra cosa.</strong> Si el objetivo es cubrir el mayor número de denuncias, el conteo es una regla excelente. Si el objetivo es igualar el riesgo por usuario, es la lista equivocada. La autoridad nunca declara cuál de los dos persigue.</p>
+  <p class="sub">Prueba con datos que el modelo no vio: se eligen 10 estaciones con la información de 2019 a 2023 y se mira qué pasó en 2024.</p>
+  <div class="tabla-caja">
+    <table>
+      <thead><tr><th>Elegir 10 estaciones con…</th><th>Robos denunciados de 2024 cubiertos</th><th>Denuncias por millón de entradas</th><th>Afluencia que hay que vigilar</th></tr></thead>
+      <tbody>
+        <tr><th>la tasa predicha por el modelo</th><td>41</td><td><strong>0.77</strong></td><td>53 millones de entradas</td></tr>
+        <tr><th>el conteo de 2019 a 2023</th><td><strong>92</strong></td><td>0.57</td><td>160 millones de entradas</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Qué significa:</strong> el conteo cubre más del doble de denuncias; el modelo cubre 35 % más denuncias por pasajero vigilado, con un tercio de la afluencia. Son dos objetivos distintos, y la decisión es de quien despliega.</p>
+</section>
+
 <footer>
-  <p>Caso de titulación, ITAM · Sebastián Córdoba. Fuentes: carpetas de investigación de la FGJ CDMX, afluencia diaria y estaciones del STC Metro, Portal de Datos Abiertos de la CDMX. Código y método: repositorio del proyecto.</p>
+  <p>Caso de titulación, ITAM · Sebastián Córdoba. Fuentes: carpetas de investigación de la FGJ CDMX, afluencia diaria y estaciones del STC Metro, Portal de Datos Abiertos de la CDMX. Datos hasta el 31 de enero de 2025.</p>
 </footer>
 <script src="app.js"></script>
 </body>
