@@ -8,9 +8,10 @@
 <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
+<div id="pantalla">
 <header>
   <div class="titulo">
-    <h1>Las listas oficiales ordenan las estaciones del Metro por <em>conteo</em> de robos denunciados. Por pasajero, el orden cambia.</h1>
+    <h1>Las listas oficiales ordenan las estaciones del Metro por conteo de robos denunciados. Por pasajero, el orden cambia.</h1>
     <p class="corte">Datos hasta el <strong>31 de enero de 2025</strong> · hechos de 2019 a 2024 <span id="estado-red" class="estado"></span></p>
   </div>
   <div class="interruptor" role="group" aria-label="Ordenar por">
@@ -19,27 +20,22 @@
     <button id="btn-tasa" type="button" aria-pressed="false">TASA<small>denuncias por millón de entradas</small></button>
   </div>
 </header>
+<div class="cinta" aria-hidden="true"><span style="background:#e9468f"></span><span style="background:#00599f"></span><span style="background:#b69c13"></span><span style="background:#6cbab1"></span><span style="background:#fdd200"></span><span style="background:#d81c23"></span><span style="background:#e87511"></span><span style="background:#118749"></span><span style="background:#512826"></span><span style="background:#a02d96"></span><span style="background:#118751"></span><span style="background:#b99e51"></span></div>
 
 <section id="que-mide" aria-label="Qué mide esto">
   <h2>Qué mide esto</h2>
   <ul>
-    <li><strong>Son DENUNCIAS, no robos.</strong> Carpetas de investigación de la Fiscalía por «robo a pasajero a bordo de Metro». La mayor parte de los robos no se denuncia.</li>
-    <li><strong>Las listas oficiales y de prensa ordenan por conteo</strong>, que en buena parte es ordenar por afluencia. Aquí se compara con la tasa de denuncias por millón de entradas, <strong>encogida</strong> por un modelo que descuenta la poca evidencia de cada estación.</li>
-    <li><strong>Solo se mide donde se puede:</strong> 124 estaciones sin correspondencia. De esas, <strong>solo 25 se distinguen</strong> de una estación típica (▲ 14, ▼ 11); 99 no.</li>
-    <li><strong>Rombos grises, correspondencias:</strong> quien transborda no pasa por el torniquete, así que su tasa no es comparable. No se ordenan.</li>
-    <li><strong>Hidalgo y Guerrero</strong> (rombo de borde negro) tienen unas tres veces la tasa de denuncias de correspondencias comparables. El transbordo no alcanza a explicarlo y tener una agencia del Ministerio Público cerca tampoco: es un hallazgo sin explicación.</li>
+    <li><strong>Son denuncias, no robos.</strong> Carpetas de la Fiscalía por «robo a pasajero a bordo de Metro». La mayoría de los robos no se denuncia.</li>
+    <li><strong>Las listas oficiales ordenan por conteo</strong>, que en buena parte es afluencia. Aquí: denuncias por millón de entradas, <strong>encogidas</strong> por un modelo según la evidencia de cada estación.</li>
+    <li><strong>Solo se mide donde se puede:</strong> 124 estaciones sin correspondencia. <strong>Solo 25 se distinguen</strong> de una estación típica (▲ 14, ▼ 11); 99 no.</li>
+    <li><strong>Rombos: correspondencias.</strong> Quien transborda no pasa por el torniquete; su tasa no es comparable y no se ordenan.</li>
+    <li><strong>Hidalgo y Guerrero</strong> (borde grueso): unas tres veces la tasa de denuncias de correspondencias comparables. Ni el transbordo ni una agencia del Ministerio Público cerca lo explican.</li>
     <li><strong>Datos hasta el 31 de enero de 2025.</strong> El 19.1 % de las carpetas no se pudo ubicar en una estación.</li>
   </ul>
 </section>
 
 <main>
   <section id="mapa-caja" aria-label="Mapa de la red">
-    <div class="mapa-controles">
-      <button type="button" id="zoom-centro" class="ancho" aria-label="Acercar al centro">Centro</button>
-      <button type="button" id="zoom-mas" aria-label="Acercar">+</button>
-      <button type="button" id="zoom-menos" aria-label="Alejar">−</button>
-      <button type="button" id="zoom-todo" aria-label="Ver toda la red">⤢</button>
-    </div>
     <svg id="mapa" role="img" aria-label="Mapa de la red del Metro. Triángulo hacia arriba: tasa de denuncias distinguible por arriba de la estación típica; triángulo hacia abajo: por abajo; círculo: no distinguible."></svg>
     <div id="leyenda"></div>
     <div id="tooltip" hidden></div>
@@ -60,6 +56,7 @@
     </section>
   </aside>
 </main>
+</div>
 
 <!-- Bloque estático. Los cuatro números están escritos a mano; src/metro/06_app_datos.py truena si dejan de coincidir con el modelo. -->
 <section id="dos-reglas" aria-label="Dos reglas para elegir dónde desplegar">

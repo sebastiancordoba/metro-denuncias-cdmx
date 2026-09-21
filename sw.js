@@ -1,6 +1,6 @@
 /* Guarda la página completa para que abra y recargue sin conexión. No hay nada más que guardar:
    la app no pide nada a ningún servidor ajeno. Al cambiar algo, sube VERSION. */
-const VERSION = "metro-denuncias-v6";
+const VERSION = "metro-denuncias-v7";
 const ARCHIVOS = ["./", "index.html", "estilo.css", "app.js", "datos.json"];
 
 // GitHub Pages sirve con max-age=600: un fetch normal puede devolver, durante diez minutos, el
