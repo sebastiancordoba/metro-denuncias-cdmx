@@ -220,10 +220,13 @@ function muestraTooltip(ev, s) {
 
 function dibujaLeyenda() {
   const m = D.meta.modelo;
+  // Las distinguibles con menos de 15 denuncias se dibujan punteadas (manda la regla de evidencia): que la cuenta cuadre a la vista.
+  const pocas = (lado) => D.estaciones.filter((s) => s.estrato === "a" && s.estatus === lado && s.evidencia_insuficiente).length;
+  const nota = (lado) => (pocas(lado) ? `; ${pocas(lado)} con menos de ${D.meta.min_denuncias_para_recomendar} denuncias van punteadas` : "");
   const cuad = (grueso) => `<svg width="16" height="16" viewBox="0 0 16 16"><defs><pattern id="trama-l" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#d9d7d0"/><line x1="0" y1="0" x2="0" y2="4" stroke="#777" stroke-width="1.6"/></pattern></defs><rect x="3.5" y="3.5" width="9" height="9" transform="rotate(45 8 8)" fill="url(#trama-l)" stroke="${grueso ? "#000" : "#555"}" stroke-width="${grueso ? 2 : 0.8}"/></svg>`;
   $("#leyenda").innerHTML = `
-    <span class="item"><svg width="18" height="16"><polygon points="9,2 16,14 2,14" fill="#c9685a" stroke="#1d1d1b" stroke-width="1.4"/></svg> <b>▲ distinguible por arriba</b> (${m.arriba})</span>
-    <span class="item"><svg width="18" height="16"><polygon points="9,14 16,2 2,2" fill="#6f98b8" stroke="#1d1d1b" stroke-width="1.4"/></svg> <b>▼ distinguible por abajo</b> (${m.abajo})</span>
+    <span class="item"><svg width="18" height="16"><polygon points="9,2 16,14 2,14" fill="#c9685a" stroke="#1d1d1b" stroke-width="1.4"/></svg> <b>▲ distinguible por arriba</b> (${m.arriba}${nota("arriba")})</span>
+    <span class="item"><svg width="18" height="16"><polygon points="9,14 16,2 2,2" fill="#6f98b8" stroke="#1d1d1b" stroke-width="1.4"/></svg> <b>▼ distinguible por abajo</b> (${m.abajo}${nota("abajo")})</span>
     <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="#ece6dc" stroke="#999" stroke-width=".8"/></svg> <b>○ no distinguible</b> de una estación típica (${D.meta.estrato_a.estaciones - m.distinguibles}: la mayoría)</span>
     <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#fff" stroke="#8a8a86" stroke-dasharray="2 1.5"/></svg> menos de ${D.meta.min_denuncias_para_recomendar} denuncias: evidencia insuficiente, salga donde salga</span>
     <span class="item"><span class="rampa-caja"><span class="rampa"></span><span><b>0.4</b><b>1.0</b><b>2.5</b></span></span> color: tasa encogida de denuncias ÷ la de una estación típica</span>
