@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robos denunciados en el Metro de la CDMX: conteo contra tasa</title>
+<meta name="description" content="Las listas oficiales ordenan las estaciones del Metro por número de denuncias. Por denuncias por millón de entradas, el orden cambia.">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header>
+  <div class="titulo">
+    <h1>Metro de la CDMX: ¿dónde se denuncian más robos, o dónde se denuncian más <em>por pasajero</em>?</h1>
+    <p class="corte">Datos hasta el <strong id="corte">…</strong> · hechos de 2019 a 2024 · <span id="estado-red" class="estado"></span></p>
+  </div>
+  <div class="interruptor" role="group" aria-label="Ordenar por">
+    <span class="interruptor-etiqueta">Ordenar las estaciones por</span>
+    <button id="btn-conteo" type="button" aria-pressed="true">CONTEO<small>robos denunciados</small></button>
+    <button id="btn-tasa" type="button" aria-pressed="false">TASA<small>denuncias por millón de entradas</small></button>
+  </div>
+</header>
+
+<section id="que-mide" aria-label="Qué mide esto">
+  <h2>Qué mide esto</h2>
+  <ul>
+    <li><strong>Son DENUNCIAS, no robos.</strong> Carpetas de investigación de la Fiscalía por «robo a pasajero a bordo de Metro». La mayor parte de los robos no se denuncia.</li>
+    <li><strong>Las listas oficiales y de prensa ordenan por conteo</strong>, que en buena parte es ordenar por afluencia. Aquí se compara con la tasa por millón de entradas.</li>
+    <li><strong>Solo se mide donde se puede:</strong> <span id="n-a">124</span> estaciones sin correspondencia. En las correspondencias, quien transborda no pasa por el torniquete y la tasa no es comparable.</li>
+    <li><strong>Datos hasta el <span id="corte2">…</span>.</strong> El <span id="pct-sin">19.1</span> % de las carpetas no se pudo ubicar en una estación.</li>
+  </ul>
+</section>
+
+<main>
+  <section id="mapa-caja" aria-label="Mapa de la red">
+    <div class="mapa-controles">
+      <button type="button" id="zoom-mas" aria-label="Acercar">+</button>
+      <button type="button" id="zoom-menos" aria-label="Alejar">−</button>
+      <button type="button" id="zoom-todo" aria-label="Ver toda la red">⤢</button>
+    </div>
+    <svg id="mapa" role="img" aria-label="Mapa de la red del Metro con las estaciones coloreadas por razón de denuncias observadas entre esperadas"></svg>
+    <div id="leyenda"></div>
+    <div id="tooltip" hidden></div>
+  </section>
+
+  <aside id="lateral">
+    <section id="aviso-cambio" aria-live="polite"></section>
+    <section id="detalle" aria-live="polite">
+      <p class="pista">Toca una estación del mapa o de la lista.</p>
+    </section>
+    <section id="lista-caja">
+      <div class="lista-cabeza">
+        <h2 id="lista-titulo">Estaciones sin correspondencia</h2>
+        <label class="casilla"><input type="checkbox" id="ver-insuficientes"> Ver también las de menos de <span id="min-d">15</span> denuncias <em>(evidencia insuficiente)</em></label>
+      </div>
+      <p id="lista-nota" class="nota"></p>
+      <ol id="lista"></ol>
+    </section>
+  </aside>
+</main>
+
+<footer>
+  <p>Caso de titulación, ITAM · Sebastián Córdoba. Fuentes: carpetas de investigación de la FGJ CDMX, afluencia diaria y estaciones del STC Metro, Portal de Datos Abiertos de la CDMX. Código y método: repositorio del proyecto.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
