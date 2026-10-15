@@ -35,7 +35,9 @@
     </section>
     <section id="lista-caja">
       <div class="lista-cabeza">
+        <div id="periodos" class="periodos" role="group" aria-label="Periodo"></div>
         <h2 id="lista-titulo">Estaciones sin correspondencia</h2>
+        <p id="lista-nota" class="nota"></p>
         <label class="casilla"><input type="checkbox" id="ocultar-insuficientes"> Ocultar las de menos de 15 denuncias</label>
       </div>
       <ol id="lista"></ol>
@@ -60,6 +62,13 @@
   <p>Ninguna está mal: optimizan objetivos distintos.</p>
 </section>
 
+<section id="mensual" aria-label="Por mes">
+  <h2>Por mes, las 124 estaciones juntas</h2>
+  <p class="sub">Denuncias por millón de entradas, con intervalo al 95 %.</p>
+  <div id="mensual-grafica"></div>
+  <p id="mensual-nota" class="nota"></p>
+</section>
+
 <details id="como">
   <summary>¿Cómo se calcula?</summary>
   <ul>
@@ -67,6 +76,7 @@
     <li><strong>Tasa:</strong> denuncias por millón de entradas por torniquete, encogida por un modelo binomial negativo según la evidencia de cada estación. Intervalos al 95 %.</li>
     <li><strong>124 estaciones sin correspondencia.</strong> Solo 25 se distinguen de una estación típica (▲ 14, ▼ 11); 99 no.</li>
     <li><strong>Correspondencias (rombos):</strong> quien transborda no pasa por el torniquete, así que su tasa no es comparable y no se ordenan. Hidalgo y Guerrero tienen unas tres veces la tasa de correspondencias comparables, sin explicación con datos abiertos.</li>
+    <li><strong>Por año:</strong> tasa cruda de ese año (denuncias ÷ entradas) con intervalo de Byar al 95 %; el modelo encogido es solo para 2019–2024 completo.</li>
     <li><strong>Menos de 15 denuncias:</strong> evidencia insuficiente, no entra en ninguna recomendación.</li>
     <li><strong>Corte:</strong> 31 de enero de 2025. El 19.1 % de las carpetas no se pudo ubicar en una estación. El plano es esquemático: el centro va ampliado.</li>
   </ul>

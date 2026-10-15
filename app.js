@@ -15,7 +15,7 @@ const num = (x, d = 0) => x.toLocaleString("es-MX", { minimumFractionDigits: d, 
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const ic = (p, d = 2) => `${num(p[0], d)} a ${num(p[1], d)}`;
 
-let D, porNombre = {}, modo = "conteo", elegida = null, vista = null, vistaTotal = null, nodos = [];
+let D, porNombre = {}, modo = "conteo", periodo = "todo", elegida = null, vista = null, vistaTotal = null, nodos = [];
 
 const ESTATUS = {
   arriba: { glifo: "▲", corto: "distinguible por arriba", clase: "arriba" },
@@ -42,6 +42,8 @@ async function inicia() {
   $("#btn-conteo").addEventListener("click", () => ponModo("conteo"));
   $("#btn-tasa").addEventListener("click", () => ponModo("tasa"));
   $("#ocultar-insuficientes").addEventListener("change", dibujaLista);
+  dibujaPeriodos();
+  dibujaMensual();
   estadoRed();
   window.addEventListener("online", estadoRed);
   window.addEventListener("offline", estadoRed);
@@ -226,33 +228,84 @@ function dibujaLeyenda() {
 /* ------------------------------------------------------------------ lista */
 const seMueve = (s) => !s.evidencia_insuficiente && Math.abs(s.cambio) > D.meta.umbral_de_cambio;
 
+// Periodo: «todo» usa el modelo (tasa encogida); un año usa la tasa CRUDA de ese año con su intervalo de Byar.
+const MIN = () => D.meta.min_denuncias_para_recomendar;
+const delAnio = (s) => s.serie.find((a) => a.anio === periodo && !a.cerrada);
+const insuf = (s) => (periodo === "todo" ? s.evidencia_insuficiente : (delAnio(s)?.denuncias ?? 0) < MIN());
+
+function dibujaPeriodos() {
+  const caja = $("#periodos");
+  ["todo", 2019, 2020, 2021, 2022, 2023, 2024].forEach((p) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = p === "todo" ? "2019–2024" : p;
+    b.setAttribute("aria-pressed", p === periodo);
+    b.addEventListener("click", () => ponPeriodo(p));
+    caja.appendChild(b);
+  });
+}
+
+function ponPeriodo(p) {
+  if (p === periodo) return;
+  periodo = p;
+  document.querySelectorAll("#periodos button").forEach((b, i) => b.setAttribute("aria-pressed", ["todo", 2019, 2020, 2021, 2022, 2023, 2024][i] === p));
+  document.body.classList.toggle("modo-anio", p !== "todo");
+  dibujaLista();
+  pintaAviso();
+  marcaAnioMensual();
+  if (elegida) elige(elegida, true, true);
+}
+
+// Lugar con empates compartidos (1, 2, 2, 4): con conteos chicos de un año, los empates son muchos.
+function lugares(filas, valor) {
+  const pos = new Map();
+  filas.forEach((s, i) => pos.set(s.nombre, i && valor(s) === valor(filas[i - 1]) ? pos.get(filas[i - 1].nombre) : i + 1));
+  return pos;
+}
+
+function filasDelPeriodo() {
+  const a = D.estaciones.filter((s) => s.estrato === "a");
+  if (periodo === "todo") {
+    const clave = modo === "conteo" ? "pos_conteo" : "pos_encogida";
+    const filas = a.sort((p, q) => p[clave] - q[clave] || q.denuncias - p.denuncias);
+    return { filas, pos: new Map(filas.map((s) => [s.nombre, s[clave]])), total: filas.length };
+  }
+  const v = modo === "conteo" ? (s) => delAnio(s).denuncias : (s) => delAnio(s).tasa_denuncias_mm;
+  const filas = a.filter(delAnio).sort((p, q) => v(q) - v(p) || delAnio(q).denuncias - delAnio(p).denuncias || p.nombre.localeCompare(q.nombre));
+  return { filas, pos: lugares(filas, v), total: filas.length };
+}
+
 function dibujaLista() {
   const ol = $("#lista");
   const antes = new Map([...ol.children].map((li) => [li.dataset.nombre, li.getBoundingClientRect().top]));
   const ocultar = $("#ocultar-insuficientes").checked;
-  const clave = modo === "conteo" ? "pos_conteo" : "pos_encogida";
-  const total = D.meta.estrato_a.estaciones;
-  const filas = D.estaciones.filter((s) => s.estrato === "a" && !(ocultar && s.evidencia_insuficiente))
-    .sort((p, q) => p[clave] - q[clave] || q.denuncias - p.denuncias);
-  $("#lista-titulo").textContent = modo === "conteo"
-    ? `Por conteo · ${total} estaciones`
-    : `Por tasa · ${total} estaciones`;
+  const { filas: todas, pos, total } = filasDelPeriodo();
+  const filas = todas.filter((s) => !(ocultar && insuf(s)));
+  const anio = periodo !== "todo";
+  $("#lista-titulo").textContent = anio
+    ? `${periodo} · por ${modo === "conteo" ? "conteo" : "tasa cruda"} · ${total} estaciones abiertas`
+    : `Por ${modo} · ${total} estaciones`;
+  const suficientes = todas.filter((s) => !insuf(s)).length;
+  $("#lista-nota").textContent = anio ? `${suficientes} de ${total} con ${MIN()} denuncias o más en ${periodo}. El mapa sigue en 2019–2024.` : "";
   ol.innerHTML = "";
+  if (!filas.length) ol.innerHTML = `<li class="vacia">Ninguna estación tiene ${MIN()} denuncias o más en ${periodo}.</li>`;
   filas.forEach((s) => {
     const li = document.createElement("li");
+    const y = anio ? delAnio(s) : null;
     li.dataset.nombre = s.nombre;
-    li.classList.add("est-" + ESTATUS[s.estatus].clase);
-    if (s.evidencia_insuficiente) li.classList.add("insuficiente");
-    if (seMueve(s)) li.classList.add("se-mueve");
+    li.classList.add("est-" + (anio ? "nodist" : ESTATUS[s.estatus].clase));
+    if (insuf(s)) li.classList.add("insuficiente");
+    if (!anio && seMueve(s)) li.classList.add("se-mueve");
     if (s.nombre === elegida) li.classList.add("elegida");
     let mov = "";
-    if (modo === "tasa" && seMueve(s)) mov = s.cambio > 0 ? `<span class="mov sube">sube ${s.cambio}</span>` : `<span class="mov baja">baja ${-s.cambio}</span>`;
+    if (!anio && modo === "tasa" && seMueve(s)) mov = s.cambio > 0 ? `<span class="mov sube">sube ${s.cambio}</span>` : `<span class="mov baja">baja ${-s.cambio}</span>`;
     const e = ESTATUS[s.estatus];
-    const etiq = s.evidencia_insuficiente ? '<span class="etiqueta insuf">evidencia insuficiente</span>' : "";
+    const etiq = insuf(s) ? '<span class="etiqueta insuf">evidencia insuficiente</span>' : "";
+    const [t, ic95] = anio ? [y.tasa_denuncias_mm, y.tasa_ic95] : [s.tasa_encogida_mm, s.tasa_encogida_ic95];
     const val = modo === "conteo"
-      ? `${num(s.denuncias)} <small>denuncias</small>`
-      : `${num(s.tasa_encogida_mm, 2)} <small>(${num(s.tasa_encogida_ic95[0], 2)}–${num(s.tasa_encogida_ic95[1], 2)})</small>`;
-    li.innerHTML = `<span class="pos">${s[clave]}<small> de ${total}</small></span><span class="glifo" title="${e.corto}">${s.evidencia_insuficiente ? "·" : e.glifo}</span><span class="nom">${esc(s.nombre)} ${etiq}${mov}</span><span class="val">${val}</span>`;
+      ? `${num(anio ? y.denuncias : s.denuncias)} <small>denuncias</small>`
+      : `${num(t, 2)} <small>(${num(ic95[0], 2)}–${num(ic95[1], 2)})</small>`;
+    li.innerHTML = `<span class="pos">${pos.get(s.nombre)}<small> de ${total}</small></span><span class="glifo" title="${e.corto}">${insuf(s) ? "·" : e.glifo}</span><span class="nom">${esc(s.nombre)} ${etiq}${mov}</span><span class="val">${val}</span>`;
     li.addEventListener("click", () => elige(s.nombre, true));
     ol.appendChild(li);
   });
@@ -276,8 +329,13 @@ function ponModo(m) {
   $("#btn-tasa").setAttribute("aria-pressed", m === "tasa");
   document.querySelectorAll(".anillo.se-mueve").forEach((a) => { a.style.animation = "none"; void a.getBoundingClientRect(); a.style.animation = ""; });
   dibujaLista();
+  pintaAviso();
+}
+
+// El aviso de cambio es del periodo completo (modelo): en un año suelto no aplica.
+function pintaAviso() {
   const a = $("#aviso-cambio");
-  if (m === "tasa") {
+  if (modo === "tasa" && periodo === "todo") {
     const mov = D.estaciones.filter((s) => s.estrato === "a" && seMueve(s));
     const bajan = mov.filter((s) => s.cambio < 0 && s.estatus === "no" && s.pos_encogida > 40).sort((p, q) => p.pos_conteo - q.pos_conteo);
     const suben = mov.filter((s) => s.cambio > 0 && s.estatus === "arriba").sort((p, q) => p.pos_encogida - q.pos_encogida);
@@ -288,17 +346,40 @@ function ponModo(m) {
   } else a.innerHTML = "";
 }
 
+/* ------------------------------------------------------------------ por mes */
+// Solo la serie del estrato: por estación, casi todos los meses tienen 0 a 2 denuncias y un orden mensual sería ruido.
+function dibujaMensual() {
+  const M = D.mensual, S = M.serie, W = 720, H = 210, m = { l: 42, r: 10, t: 10, b: 24 };
+  const max = Math.ceil(Math.max(...S.map((p) => p.tasa_ic95[1])) * 2) / 2;
+  const x = (i) => m.l + (i + 0.5) * ((W - m.l - m.r) / S.length);
+  const y = (v) => H - m.b - (v / max) * (H - m.t - m.b);
+  const anchoAnio = 12 * ((W - m.l - m.r) / S.length);
+  let g = "";
+  for (let k = 0; k < 6; k++) g += `<rect class="banda-anio" data-anio="${2019 + k}" x="${m.l + k * anchoAnio}" y="${m.t}" width="${anchoAnio}" height="${H - m.t - m.b}"/>`;
+  for (let v = 0; v <= max + 1e-9; v += 0.5) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" class="reja"/><text x="${m.l - 5}" y="${y(v) + 3}" text-anchor="end">${num(v, 1)}</text>`;
+  for (let k = 0; k < 6; k++) g += `<text x="${m.l + (k + 0.5) * anchoAnio}" y="${H - 6}" text-anchor="middle">${2019 + k}</text>`;
+  const banda = S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_ic95[1]).toFixed(1)}`).join(" ") + " " + S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_ic95[0]).toFixed(1)}`).reverse().join(" ");
+  g += `<polygon points="${banda}" class="ic"/>`;
+  g += `<polyline points="${S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_denuncias_mm).toFixed(1)}`).join(" ")}" class="tasa"/>`;
+  S.forEach((p, i) => (g += `<circle cx="${x(i)}" cy="${y(p.tasa_denuncias_mm)}" r="2.2" class="punto"><title>${p.mes}: ${num(p.tasa_denuncias_mm, 2)} (${ic(p.tasa_ic95)}) · ${p.denuncias} denuncias</title></circle>`));
+  $("#mensual-grafica").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Denuncias por millón de entradas, por mes, en las 124 estaciones sin correspondencia, con intervalo al 95 %">${g}</svg>`;
+  $("#mensual-nota").textContent = `No se ordena por mes: en el ${num(M.pct_meses_estacion_0_a_2, 0)} % de los ${num(M.meses_estacion)} meses-estación hubo 0 a 2 denuncias (máximo ${M.max_denuncias_estacion_mes}).`;
+}
+function marcaAnioMensual() {
+  document.querySelectorAll(".banda-anio").forEach((r) => r.classList.toggle("activa", +r.dataset.anio === periodo));
+}
+
 /* ------------------------------------------------------------------ detalle */
-function elige(nombre, desdeLista) {
+function elige(nombre, desdeLista, quieto) {
   elegida = nombre;
   document.querySelectorAll(".est.elegida, #lista li.elegida").forEach((n) => n.classList.remove("elegida"));
   document.querySelectorAll(`.est[data-nombre="${CSS.escape(nombre)}"]`).forEach((n) => n.classList.add("elegida"));
   const s = porNombre[nombre];
-  if (s.estrato === "a" && s.evidencia_insuficiente && $("#ocultar-insuficientes").checked) { $("#ocultar-insuficientes").checked = false; dibujaLista(); }
+  if (s.estrato === "a" && insuf(s) && $("#ocultar-insuficientes").checked) { $("#ocultar-insuficientes").checked = false; dibujaLista(); }
   const li = document.querySelector(`#lista li[data-nombre="${CSS.escape(nombre)}"]`);
-  if (li) { li.classList.add("elegida"); if (!desdeLista) li.scrollIntoView({ block: "nearest" }); }
+  if (li) { li.classList.add("elegida"); if (!desdeLista && !quieto) li.scrollIntoView({ block: "nearest" }); }
   $("#detalle").innerHTML = s.estrato === "a" ? fichaA(s) : s.estrato === "edomex" ? fichaEdomex(s) : fichaCorr(s);
-  if (desdeLista && matchMedia("(max-width: 860px)").matches) $("#detalle").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (desdeLista && !quieto && matchMedia("(max-width: 860px)").matches) $("#detalle").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 const cifra = (t, v, sub, clase = "") => `<div class="cifra ${clase}"><dt>${t}</dt><dd>${v}${sub ? `<small>${sub}</small>` : ""}</dd></div>`;
@@ -378,7 +459,8 @@ function serieSvg(s) {
   let g = `<line x1="${m.l}" y1="${y(0)}" x2="${W - m.r}" y2="${y(0)}" stroke="#b8c4cf"/>`;
   [0, max].forEach((v) => (g += `<text x="${m.l - 4}" y="${y(v) + 3}" text-anchor="end">${num(v, 1)}</text>`));
   s.serie.forEach((a, i) => {
-    g += `<text x="${x(i)}" y="${H - m.b + 12}" text-anchor="middle">${a.anio}</text>`;
+    if (a.anio === periodo) g += `<rect x="${x(i) - 22}" y="${m.t - 2}" width="44" height="${H - m.t + 2}" rx="4" fill="#fff1e8"/>`;
+    g += `<text x="${x(i)}" y="${H - m.b + 12}" text-anchor="middle"${a.anio === periodo ? ' font-weight="700"' : ""}>${a.anio}</text>`;
     if (a.cerrada) { g += `<text x="${x(i)}" y="${H - m.b + 23}" text-anchor="middle">cerrada</text>`; return; }
     g += `<text x="${x(i)}" y="${H - m.b + 23}" text-anchor="middle">${a.denuncias} den.</text>`;
     const tope = Math.min(a.tasa_ic95[1], max);
