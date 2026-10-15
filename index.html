@@ -11,28 +11,15 @@
 <div id="pantalla">
 <header>
   <div class="titulo">
-    <h1>Las listas oficiales ordenan las estaciones del Metro por conteo de robos denunciados. Por pasajero, el orden cambia.</h1>
-    <p class="corte">Datos hasta el <strong>31 de enero de 2025</strong> · hechos de 2019 a 2024 <span id="estado-red" class="estado"></span></p>
+    <h1>Robo denunciado en el Metro: conteo contra tasa</h1>
+    <p class="corte">Denuncias de 2019 a 2024 · corte al <strong>31 de enero de 2025</strong> <span id="estado-red" class="estado"></span></p>
   </div>
   <div class="interruptor" role="group" aria-label="Ordenar por">
-    <span class="interruptor-etiqueta">Ordenar las estaciones por</span>
-    <button id="btn-conteo" type="button" aria-pressed="true">CONTEO<small>robos denunciados</small></button>
-    <button id="btn-tasa" type="button" aria-pressed="false">TASA<small>denuncias por millón de entradas</small></button>
+    <button id="btn-conteo" type="button" aria-pressed="true">CONTEO<small>denuncias</small></button>
+    <button id="btn-tasa" type="button" aria-pressed="false">TASA<small>por millón de entradas</small></button>
   </div>
 </header>
 <div class="cinta" aria-hidden="true"><span style="background:#e9468f"></span><span style="background:#00599f"></span><span style="background:#b69c13"></span><span style="background:#6cbab1"></span><span style="background:#fdd200"></span><span style="background:#d81c23"></span><span style="background:#e87511"></span><span style="background:#118749"></span><span style="background:#512826"></span><span style="background:#a02d96"></span><span style="background:#118751"></span><span style="background:#b99e51"></span></div>
-
-<section id="que-mide" aria-label="Qué mide esto">
-  <h2>Qué mide esto</h2>
-  <ul>
-    <li><strong>Son denuncias, no robos.</strong> Carpetas de la Fiscalía por «robo a pasajero a bordo de Metro». La mayoría de los robos no se denuncia.</li>
-    <li><strong>Las listas oficiales ordenan por conteo</strong>, que en buena parte es afluencia. Aquí: denuncias por millón de entradas, <strong>encogidas</strong> por un modelo según la evidencia de cada estación.</li>
-    <li><strong>Solo se mide donde se puede:</strong> 124 estaciones sin correspondencia. <strong>Solo 25 se distinguen</strong> de una estación típica (▲ 14, ▼ 11); 99 no.</li>
-    <li><strong>Rombos: correspondencias.</strong> Quien transborda no pasa por el torniquete; su tasa no es comparable y no se ordenan.</li>
-    <li><strong>Hidalgo y Guerrero</strong> (borde grueso): unas tres veces la tasa de denuncias de correspondencias comparables. Ni el transbordo ni una agencia del Ministerio Público cerca lo explican.</li>
-    <li><strong>Datos hasta el 31 de enero de 2025.</strong> El 19.1 % de las carpetas no se pudo ubicar en una estación.</li>
-  </ul>
-</section>
 
 <main>
   <section id="mapa-caja" aria-label="Mapa de la red">
@@ -44,13 +31,12 @@
   <aside id="lateral">
     <section id="aviso-cambio" aria-live="polite"></section>
     <section id="detalle" aria-live="polite">
-      <p class="pista">Toca una estación del mapa o de la lista.</p>
+      <p class="pista">Toca una estación.</p>
     </section>
     <section id="lista-caja">
       <div class="lista-cabeza">
         <h2 id="lista-titulo">Estaciones sin correspondencia</h2>
-        <p id="lista-nota" class="nota"></p>
-        <label class="casilla"><input type="checkbox" id="ocultar-insuficientes"> Ocultar las de menos de 15 denuncias <em>(evidencia insuficiente)</em></label>
+        <label class="casilla"><input type="checkbox" id="ocultar-insuficientes"> Ocultar las de menos de 15 denuncias</label>
       </div>
       <ol id="lista"></ol>
     </section>
@@ -60,23 +46,34 @@
 
 <!-- Bloque estático. Los cuatro números están escritos a mano; src/metro/06_app_datos.py truena si dejan de coincidir con el modelo. -->
 <section id="dos-reglas" aria-label="Dos reglas para elegir dónde desplegar">
-  <h2>Dos reglas, dos objetivos: ninguna lista es «la correcta»</h2>
-  <p>El orden por conteo <strong>no está equivocado: optimiza otra cosa.</strong> Si el objetivo es cubrir el mayor número de denuncias, el conteo es una regla excelente. Si el objetivo es igualar el riesgo por usuario, es la lista equivocada. La autoridad nunca declara cuál de los dos persigue.</p>
-  <p class="sub">Prueba con datos que el modelo no vio: se eligen 10 estaciones con la información de 2019 a 2023 y se mira qué pasó en 2024.</p>
+  <h2>Dos reglas, probadas en 2024</h2>
+  <p class="sub">10 estaciones elegidas con datos de 2019 a 2023; se mide lo que pasó en 2024.</p>
   <div class="tabla-caja">
     <table>
-      <thead><tr><th>Elegir 10 estaciones con…</th><th>Robos denunciados de 2024 cubiertos</th><th>Denuncias por millón de entradas</th><th>Afluencia que hay que vigilar</th></tr></thead>
+      <thead><tr><th>Elegir 10 por…</th><th>Denuncias de 2024 cubiertas</th><th>Denuncias por millón de entradas</th><th>Afluencia a vigilar</th></tr></thead>
       <tbody>
-        <tr><th>la tasa predicha por el modelo</th><td>41</td><td><strong>0.77</strong></td><td>53 millones de entradas</td></tr>
-        <tr><th>el conteo de 2019 a 2023</th><td><strong>92</strong></td><td>0.57</td><td>160 millones de entradas</td></tr>
+        <tr><th>tasa del modelo</th><td>41</td><td><strong>0.77</strong></td><td>53 M de entradas</td></tr>
+        <tr><th>conteo</th><td><strong>92</strong></td><td>0.57</td><td>160 M de entradas</td></tr>
       </tbody>
     </table>
   </div>
-  <p><strong>Qué significa:</strong> el conteo cubre más del doble de denuncias; el modelo cubre 35 % más denuncias por pasajero vigilado, con un tercio de la afluencia. Son dos objetivos distintos, y la decisión es de quien despliega.</p>
+  <p>Ninguna está mal: optimizan objetivos distintos.</p>
 </section>
 
+<details id="como">
+  <summary>¿Cómo se calcula?</summary>
+  <ul>
+    <li><strong>Son denuncias, no robos:</strong> carpetas de la FGJ por «robo a pasajero a bordo de Metro». La mayoría de los robos no se denuncia.</li>
+    <li><strong>Tasa:</strong> denuncias por millón de entradas por torniquete, encogida por un modelo binomial negativo según la evidencia de cada estación. Intervalos al 95 %.</li>
+    <li><strong>124 estaciones sin correspondencia.</strong> Solo 25 se distinguen de una estación típica (▲ 14, ▼ 11); 99 no.</li>
+    <li><strong>Correspondencias (rombos):</strong> quien transborda no pasa por el torniquete, así que su tasa no es comparable y no se ordenan. Hidalgo y Guerrero tienen unas tres veces la tasa de correspondencias comparables, sin explicación con datos abiertos.</li>
+    <li><strong>Menos de 15 denuncias:</strong> evidencia insuficiente, no entra en ninguna recomendación.</li>
+    <li><strong>Corte:</strong> 31 de enero de 2025. El 19.1 % de las carpetas no se pudo ubicar en una estación. El plano es esquemático: el centro va ampliado.</li>
+  </ul>
+</details>
+
 <footer>
-  <p>Caso de titulación, ITAM · Sebastián Córdoba. Fuentes: carpetas de investigación de la FGJ CDMX, afluencia diaria y estaciones del STC Metro, Portal de Datos Abiertos de la CDMX. Datos hasta el 31 de enero de 2025.</p>
+  <p>Sebastián Córdoba · ITAM · Datos: FGJ CDMX y STC Metro (Datos Abiertos CDMX)</p>
 </footer>
 <script src="app.js"></script>
 </body>

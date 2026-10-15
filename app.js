@@ -50,7 +50,7 @@ async function inicia() {
 }
 
 function estadoRed() {
-  $("#estado-red").textContent = navigator.onLine ? "" : "· sin conexión: todo sigue funcionando";
+  $("#estado-red").textContent = navigator.onLine ? "" : "· sin conexión";
 }
 
 /* ------------------------------------------------------------------ mapa */
@@ -196,10 +196,10 @@ function muestraTooltip(ev, s) {
   const t = $("#tooltip");
   let txt = `<strong>${esc(s.nombre)}</strong><br>`;
   if (s.estrato === "a") {
-    txt += `${num(s.denuncias)} robos denunciados · tasa encogida: ${num(s.tasa_encogida_mm, 2)} denuncias por millón de entradas (IC 95 %: ${ic(s.tasa_encogida_ic95)})<br>${ESTATUS[s.estatus].glifo} ${ESTATUS[s.estatus].corto}`;
-    if (s.evidencia_insuficiente) txt += ` · evidencia insuficiente: menos de ${D.meta.min_denuncias_para_recomendar} denuncias`;
-  } else if (s.estrato === "edomex") txt += "Fuera de la CDMX: se denuncia ante otra fiscalía. No se mide.";
-  else txt += `${num(s.denuncias)} robos denunciados · correspondencia: no medible con datos abiertos`;
+    txt += `${num(s.denuncias)} denuncias · ${num(s.tasa_encogida_mm, 2)} por millón de entradas (${ic(s.tasa_encogida_ic95)})<br>`;
+    txt += s.evidencia_insuficiente ? "evidencia insuficiente" : `${ESTATUS[s.estatus].glifo} ${ESTATUS[s.estatus].corto}`;
+  } else if (s.estrato === "edomex") txt += "Estado de México: no se mide";
+  else txt += `${num(s.denuncias)} denuncias · correspondencia, no medible`;
   t.innerHTML = txt;
   t.hidden = false;
   const caja = $("#mapa-caja").getBoundingClientRect();
@@ -209,21 +209,18 @@ function muestraTooltip(ev, s) {
 
 function dibujaLeyenda() {
   const m = D.meta.modelo;
-  // Las distinguibles con menos de 15 denuncias se dibujan punteadas (manda la regla de evidencia): que la cuenta cuadre a la vista.
-  const pocas = (lado) => D.estaciones.filter((s) => s.estrato === "a" && s.estatus === lado && s.evidencia_insuficiente).length;
-  const nota = (lado) => (pocas(lado) ? `; ${pocas(lado)} con menos de ${D.meta.min_denuncias_para_recomendar} denuncias van punteadas` : "");
   const cuad = (grueso) => `<svg width="16" height="16" viewBox="0 0 16 16"><defs><pattern id="trama-l" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#fff"/><line x1="0" y1="0" x2="0" y2="4" stroke="#10233f" stroke-width="1.5"/></pattern></defs><rect x="3.5" y="3.5" width="9" height="9" transform="rotate(45 8 8)" fill="url(#trama-l)" stroke="#10233f" stroke-width="${grueso ? 2.4 : 1}" rx="1.5"/></svg>`;
   $("#leyenda").innerHTML = `
-    <span class="item nota-plano"><b>Plano esquemático.</b> El centro va ampliado para que todo se lea de una vez: no está a escala.</span>
-    <span class="item"><svg width="18" height="16"><polygon points="9,2 16,14 2,14" fill="#e2586a" stroke="#10233f" stroke-width="1.4"/></svg> <b>▲ distinguible por arriba</b> (${m.arriba}${nota("arriba")})</span>
-    <span class="item"><svg width="18" height="16"><polygon points="9,14 16,2 2,2" fill="#5b97c4" stroke="#10233f" stroke-width="1.4"/></svg> <b>▼ distinguible por abajo</b> (${m.abajo}${nota("abajo")})</span>
-    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="#fff" stroke="#10233f" stroke-width="1"/></svg> <b>○ no distinguible</b> de una estación típica (${D.meta.estrato_a.estaciones - m.distinguibles}: la mayoría)</span>
-    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#fff" stroke="#7a8794" stroke-dasharray="2 1.5"/></svg> menos de ${D.meta.min_denuncias_para_recomendar} denuncias: evidencia insuficiente, salga donde salga</span>
-    <span class="item"><span class="rampa-caja"><span class="rampa"></span><span><b>0.4</b><b>1.0</b><b>2.5</b></span></span> color: tasa encogida de denuncias ÷ la de una estación típica</span>
-    <span class="item"><svg width="34" height="16"><circle cx="6" cy="8" r="3.5" fill="#fff" stroke="#10233f"/><circle cx="23" cy="8" r="7.5" fill="#fff" stroke="#10233f"/></svg> tamaño: robos denunciados</span>
-    <span class="item">${cuad(false)} correspondencia: no medible con datos abiertos</span>
-    <span class="item">${cuad(true)} Hidalgo y Guerrero: anómalas, sin explicación</span>
-    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="3" fill="#dfe6ec" stroke="#9aa7b3"/></svg> Estado de México: otra fiscalía</span>`;
+    <span class="item titulo-ley"><b>Tasa contra la estación típica</b></span>
+    <span class="item"><svg width="18" height="16"><polygon points="9,2 16,14 2,14" fill="#e2586a" stroke="#10233f" stroke-width="1.4"/></svg> <b>Por arriba</b> (${m.arriba})</span>
+    <span class="item"><svg width="18" height="16"><polygon points="9,14 16,2 2,2" fill="#5b97c4" stroke="#10233f" stroke-width="1.4"/></svg> <b>Por abajo</b> (${m.abajo})</span>
+    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="#fff" stroke="#10233f" stroke-width="1"/></svg> No distinguible (${D.meta.estrato_a.estaciones - m.distinguibles})</span>
+    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#fff" stroke="#7a8794" stroke-dasharray="2 1.5"/></svg> &lt; ${D.meta.min_denuncias_para_recomendar} denuncias</span>
+    <span class="item"><span class="rampa-caja"><span class="rampa"></span><span><b>0.4</b><b>1.0</b><b>2.5</b></span></span> × estación típica</span>
+    <span class="item"><svg width="34" height="16"><circle cx="6" cy="8" r="3.5" fill="#fff" stroke="#10233f"/><circle cx="23" cy="8" r="7.5" fill="#fff" stroke="#10233f"/></svg> denuncias</span>
+    <span class="item">${cuad(false)} correspondencia</span>
+    <span class="item">${cuad(true)} Hidalgo y Guerrero</span>
+    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="3" fill="#dfe6ec" stroke="#9aa7b3"/></svg> Edomex</span>`;
 }
 
 /* ------------------------------------------------------------------ lista */
@@ -238,9 +235,8 @@ function dibujaLista() {
   const filas = D.estaciones.filter((s) => s.estrato === "a" && !(ocultar && s.evidencia_insuficiente))
     .sort((p, q) => p[clave] - q[clave] || q.denuncias - p.denuncias);
   $("#lista-titulo").textContent = modo === "conteo"
-    ? "Por conteo de robos denunciados · lugar entre 124"
-    : "Por tasa encogida de denuncias por millón de entradas · lugar entre 124";
-  $("#lista-nota").textContent = `${total} estaciones sin correspondencia. Solo ${D.meta.modelo.distinguibles} se distinguen de una estación típica (▲ ${D.meta.modelo.arriba}, ▼ ${D.meta.modelo.abajo}); las otras ${total - D.meta.modelo.distinguibles}, no.`;
+    ? `Por conteo · ${total} estaciones`
+    : `Por tasa · ${total} estaciones`;
   ol.innerHTML = "";
   filas.forEach((s) => {
     const li = document.createElement("li");
@@ -252,8 +248,7 @@ function dibujaLista() {
     let mov = "";
     if (modo === "tasa" && seMueve(s)) mov = s.cambio > 0 ? `<span class="mov sube">sube ${s.cambio}</span>` : `<span class="mov baja">baja ${-s.cambio}</span>`;
     const e = ESTATUS[s.estatus];
-    const etiq = (s.evidencia_insuficiente ? '<span class="etiqueta insuf">evidencia insuficiente</span>' : "")
-      + (s.estatus !== "no" && !s.evidencia_insuficiente ? `<span class="etiqueta ${e.clase}">${e.glifo} ${e.corto}</span>` : "");
+    const etiq = s.evidencia_insuficiente ? '<span class="etiqueta insuf">evidencia insuficiente</span>' : "";
     const val = modo === "conteo"
       ? `${num(s.denuncias)} <small>denuncias</small>`
       : `${num(s.tasa_encogida_mm, 2)} <small>(${num(s.tasa_encogida_ic95[0], 2)}–${num(s.tasa_encogida_ic95[1], 2)})</small>`;
@@ -286,10 +281,10 @@ function ponModo(m) {
     const mov = D.estaciones.filter((s) => s.estrato === "a" && seMueve(s));
     const bajan = mov.filter((s) => s.cambio < 0 && s.estatus === "no" && s.pos_encogida > 40).sort((p, q) => p.pos_conteo - q.pos_conteo);
     const suben = mov.filter((s) => s.cambio > 0 && s.estatus === "arriba").sort((p, q) => p.pos_encogida - q.pos_encogida);
-    const nombres = (l) => l.slice(0, 4).map((s) => `${esc(s.nombre)} (${s.pos_conteo}.º → ${s.pos_encogida}.º)`).join(", ");
-    a.innerHTML = `<strong>${mov.length} estaciones cambian más de ${D.meta.umbral_de_cambio} lugares</strong> al pasar de conteo a tasa.
-      <br><strong>Las que encabezan el conteo dejan la cabeza:</strong> ${nombres(bajan)}. No es que sean más seguras: su tasa no se distingue de la de una estación típica. Son ordinarias, y por eso muestran que el conteo ordena por volumen.
-      <br><strong>Suben y sí se distinguen (▲):</strong> ${nombres(suben)}.`;
+    const nombres = (l) => l.slice(0, 3).map((s) => `<span class="nw">${esc(s.nombre)} <b>${s.pos_conteo} → ${s.pos_encogida}</b></span>`).join(" · ");
+    a.innerHTML = `<strong>${mov.length} estaciones se mueven más de ${D.meta.umbral_de_cambio} lugares</strong>
+      <br>Bajan: ${nombres(bajan)}
+      <br>Suben ▲: ${nombres(suben)}`;
   } else a.innerHTML = "";
 }
 
@@ -315,52 +310,57 @@ function fichaA(s) {
     + (s.evidencia_insuficiente ? ' <span class="etiqueta insuf">evidencia insuficiente</span>' : "")
     + (s.sensible_al_umbral ? ' <span class="etiqueta insuf">sensible a la asignación</span>' : "");
   let lectura;
-  if (s.evidencia_insuficiente && s.pos_encogida <= 20) lectura = `Sale en el lugar ${s.pos_encogida} por tasa encogida, pero con ${s.denuncias} denuncias en seis años <strong>no entra en ninguna recomendación</strong> y su intervalo incluye 1. El modelo encoge su tasa, pero no sustituye a esta regla: el orden solo no protege de la poca evidencia.`;
-  else if (s.evidencia_insuficiente) lectura = `Con ${s.denuncias} denuncias en seis años <strong>no entra en ninguna recomendación</strong>, salga donde salga.`;
-  else if (s.estatus === "arriba") lectura = `Su tasa encogida es <strong>${num(s.razon_encogida, 1)} veces</strong> la de una estación típica, y el intervalo no toca 1. Las listas por conteo la ponen en el lugar ${s.pos_conteo}.`;
-  else if (s.estatus === "abajo") lectura = `Su tasa encogida es <strong>${num(s.razon_encogida, 2)} veces</strong> la de una estación típica, y el intervalo no toca 1: por pasajero se denuncia aquí menos que en la estación típica.`;
-  else if (s.pos_conteo <= 15 && s.pos_encogida > 40) lectura = `<strong>Está entre las primeras por conteo (lugar ${s.pos_conteo}) y por tasa queda en el lugar ${s.pos_encogida} de ${n}.</strong> No es que sea más segura: su tasa no se distingue de la de una estación típica (el intervalo incluye 1). Es una estación ordinaria con muchísima afluencia, y eso es justo lo que muestra que el conteo ordena por volumen.`;
-  else lectura = `Su tasa de denuncias <strong>no se distingue</strong> de la de una estación típica: el intervalo de la razón incluye 1. Así están ${n - m.modelo.distinguibles} de las ${n}.`;
+  if (s.evidencia_insuficiente) lectura = `<strong>Evidencia insuficiente:</strong> ${s.denuncias} denuncias en seis años${s.pos_encogida <= 20 ? `; el lugar ${s.pos_encogida} por tasa no cuenta` : ""}. No entra en ninguna recomendación.`;
+  else if (s.estatus === "arriba") lectura = `<strong>${num(s.razon_encogida, 1)} veces</strong> la tasa de una estación típica. Por conteo: lugar ${s.pos_conteo}.`;
+  else if (s.estatus === "abajo") lectura = `<strong>${num(s.razon_encogida, 2)} veces</strong> la tasa de una estación típica.`;
+  else if (s.pos_conteo <= 15 && s.pos_encogida > 40) lectura = `<strong>Lugar ${s.pos_conteo} por conteo, ${s.pos_encogida} por tasa.</strong> Mucha afluencia; tasa típica.`;
+  else lectura = "Tasa no distinguible de la típica.";
   const sensible = s.sensible_al_umbral
-    ? `<p class="nota"><strong>Sensible a cómo se asignan las carpetas.</strong> ${s.nombre === "Tasqueña"
-      ? "Es una terminal con paradero y sus carpetas se dispersan alrededor: con un radio de 100 m tiene 42 denuncias, con 150 m (el usado) 59, y con 250 m 65."
-      : "Con un radio de 100 m en vez de 150 m deja de distinguirse de la estación típica en el análisis descriptivo: estaba en el límite."}</p>` : "";
+    ? `<p>${s.nombre === "Tasqueña"
+      ? "Sensible a cómo se asignan las carpetas: terminal con paradero; con un radio de 100 m tiene 42 denuncias, con 150 m (el usado) 59, y con 250 m 65."
+      : "Sensible a cómo se asignan las carpetas: con un radio de 100 m en vez de 150 m deja de distinguirse en el análisis descriptivo."}</p>` : "";
   return `<h3>${esc(s.nombre)}</h3><p class="etiquetas">${etiqs}</p>
-    <p class="sub">${lineasTxt(s)} · estación sin correspondencia · hechos de 2019 a 2024</p>
+    <p class="sub">${lineasTxt(s)}</p>
     <dl class="cifras">
-      ${cifra("Tasa encogida · denuncias por millón de entradas", num(s.tasa_encogida_mm, 2), `IC 95 %: ${ic(s.tasa_encogida_ic95)} · lugar ${s.pos_encogida} de ${n} · estación típica: ${num(m.modelo.tasa_de_la_estacion_tipica_mm, 2)}`, "principal")}
-      ${cifra("Razón contra la estación típica", num(s.razon_encogida, 2), `IC 95 %: ${ic(s.razon_encogida_ic95)} · ${e.corto}`)}
-      ${cifra("Robos denunciados", num(s.denuncias), `IC 95 %: ${num(byar(s.denuncias)[0])} a ${num(byar(s.denuncias)[1])} · lugar ${s.pos_conteo} de ${n} por conteo`)}
-      ${cifra("Entradas", num(s.entradas_M, 1) + " M", "por torniquete, meses abierta")}
+      ${cifra("Denuncias por millón de entradas", num(s.tasa_encogida_mm, 2), `IC 95 %: ${ic(s.tasa_encogida_ic95)} · lugar ${s.pos_encogida} de ${n}`, "principal")}
+      ${cifra("× estación típica", num(s.razon_encogida, 2), `IC: ${ic(s.razon_encogida_ic95)}`)}
+      ${cifra("Denuncias", num(s.denuncias), `IC: ${num(byar(s.denuncias)[0])} a ${num(byar(s.denuncias)[1])} · lugar ${s.pos_conteo}`)}
+      ${cifra("Entradas", num(s.entradas_M, 1) + " M", "")}
     </dl>
-    <p class="nota">${lectura}</p>${sensible}
-    <p class="secundaria"><strong>Tasa cruda (sin encoger):</strong> ${num(s.tasa_denuncias_mm, 2)} denuncias por millón de entradas (IC 95 %: ${ic(s.tasa_ic95)}). El modelo la jala hacia la estación típica en proporción a la poca evidencia: de ${num(s.tasa_denuncias_mm, 2)} a ${num(s.tasa_encogida_mm, 2)}.</p>
+    <p class="lectura">${lectura}</p>
     ${serieSvg(s)}
-    <p class="nota">La tasa encogida sale de una binomial negativa con efecto de estación y de año; intervalos al 95 % (los de la serie anual, de Poisson). Son denuncias: una tasa alta puede ser más robo o más disposición a denunciar.</p>`;
+    <details class="como"><summary>¿Cómo se calcula?</summary>
+      <p>Tasa de una binomial negativa con efecto de estación y de año, que jala la tasa cruda hacia la típica (${num(m.modelo.tasa_de_la_estacion_tipica_mm, 2)}) según la evidencia: cruda ${num(s.tasa_denuncias_mm, 2)} (IC ${ic(s.tasa_ic95)}) → ${num(s.tasa_encogida_mm, 2)}. Serie anual: tasa cruda con intervalo de Poisson. Son denuncias: una tasa alta puede ser más robo o más disposición a denunciar.</p>${sensible}
+    </details>`;
 }
 
 function fichaCorr(s) {
   const mult = s.transbordos_multiplo_de_entradas;
   const t7 = mult > 0
-    ? `Para que su tasa de denuncias bajara a la de las estaciones de paso (${num(D.meta.tasa_de_paso_usada_en_t7, 2)} por millón) harían falta <strong>${num(s.transbordos_necesarios_M)} millones de transbordos</strong> en seis años: <strong>${num(mult, 1)} veces sus entradas</strong>.`
-    : `Aun contando solo sus entradas, su tasa de denuncias ya está por debajo de la de las estaciones de paso (${num(D.meta.tasa_de_paso_usada_en_t7, 2)} por millón).`;
+    ? `Para bajar a la tasa de las estaciones de paso (${num(D.meta.tasa_de_paso_usada_en_t7, 2)} por millón) harían falta ${num(s.transbordos_necesarios_M)} millones de transbordos en seis años: ${num(mult, 1)} veces sus entradas.`
+    : `Aun contando solo sus entradas, su tasa ya está por debajo de la de las estaciones de paso (${num(D.meta.tasa_de_paso_usada_en_t7, 2)} por millón).`;
   const anom = s.estrato === "c"
-    ? `<p class="nota"><strong>Hallazgo aparte.</strong> ${esc(s.nombre)} tiene ${num(s.razon_vs_controles, 1)} veces la tasa de denuncias de correspondencias comparables, y ${num(s.razon_vs_controles_solo_digital, 1)} veces si solo se cuentan denuncias digitales. Un flujo de transbordo de ${num(mult, 1)} veces sus entradas no es verosímil, y tener una agencia del Ministerio Público cerca no lo explica (se probó y se descartó). Con datos abiertos no se sabe si es más robo o algo de cómo se registra el lugar.</p>` : "";
-  return `<h3>${esc(s.nombre)}</h3><p class="etiquetas"><span class="etiqueta nomedible">no medible con datos abiertos</span>${s.estrato === "c" ? ' <span class="etiqueta anomala">anómala, sin explicación</span>' : ""}</p>
-    <p class="sub">${lineasTxt(s)} · correspondencia · hechos de 2019 a 2024</p>
+    ? `<p class="lectura"><strong>${num(s.razon_vs_controles, 1)} veces</strong> la tasa de correspondencias comparables. Sin explicación con datos abiertos.</p>` : "";
+  const anomDet = s.estrato === "c"
+    ? `<p>Con solo denuncias digitales: ${num(s.razon_vs_controles_solo_digital, 1)} veces. Un flujo de transbordo de ${num(mult, 1)} veces sus entradas no es verosímil, y una agencia del Ministerio Público cerca no lo explica (se probó y se descartó).</p>` : "";
+  return `<h3>${esc(s.nombre)}</h3><p class="etiquetas"><span class="etiqueta nomedible">no medible</span>${s.estrato === "c" ? ' <span class="etiqueta anomala">anómala</span>' : ""}</p>
+    <p class="sub">${lineasTxt(s)} · correspondencia</p>
     <dl class="cifras">
-      ${cifra("Robos denunciados", num(s.denuncias), `IC 95 %: ${num(byar(s.denuncias)[0])} a ${num(byar(s.denuncias)[1])}`)}
-      ${cifra("Entradas", num(s.entradas_M, 1) + " M", "solo quien entra por sus torniquetes")}
-      ${cifra("Transbordos que harían falta", mult > 0 ? num(mult, 1) + " × sus entradas" : "ninguno", "cota aritmética, no estimación")}
+      ${cifra("Denuncias", num(s.denuncias), `IC: ${num(byar(s.denuncias)[0])} a ${num(byar(s.denuncias)[1])}`)}
+      ${cifra("Entradas", num(s.entradas_M, 1) + " M", "")}
+      ${cifra("Transbordos necesarios", mult > 0 ? num(mult, 1) + " ×" : "ninguno", "sus entradas")}
     </dl>
-    <p class="nota"><strong>Por qué aquí no hay ranking.</strong> Quien transborda está expuesto en la estación pero no pasa por su torniquete: las entradas subestiman a la gente que pasa por aquí y cualquier tasa saldría inflada. No hay dato público de transbordos por estación.</p>
-    <p class="nota">${t7}</p>${anom}`;
+    ${anom}
+    <details class="como"><summary>¿Cómo se calcula?</summary>
+      <p>Quien transborda está en la estación pero no pasa por su torniquete: las entradas subestiman a la gente y la tasa saldría inflada. No hay dato público de transbordos por estación.</p>
+      <p>${t7} Es una cota aritmética, no una estimación.</p>${anomDet}
+    </details>`;
 }
 
 function fichaEdomex(s) {
   return `<h3>${esc(s.nombre)}</h3><p class="etiquetas"><span class="etiqueta nomedible">no se mide</span></p>
     <p class="sub">${lineasTxt(s)} · Estado de México</p>
-    <p class="nota">Un robo aquí se denuncia ante la Fiscalía del Estado de México, no ante la de la Ciudad de México: en estos datos tiene ${num(s.denuncias)} denuncias por construcción, no por seguridad.</p>`;
+    <p class="lectura">Se denuncia ante la fiscalía del Estado de México.</p>`;
 }
 
 function byar(d) {
@@ -387,7 +387,7 @@ function serieSvg(s) {
     g += `<circle cx="${x(i)}" cy="${y(a.tasa_denuncias_mm)}" r="3.2" fill="#5b6b7b"/>`;
   });
   return `<svg class="serie" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tasa cruda de denuncias por millón de entradas por año, con intervalo de Poisson al 95 %">
-    <text x="${m.l}" y="9">Tasa CRUDA por año (IC 95 %). 2019 es más alto en toda la red.</text>${g}</svg>`;
+    <text x="${m.l}" y="9">Tasa cruda por año (IC 95 %)</text>${g}</svg>`;
 }
 
 inicia().catch((e) => { $("#detalle").innerHTML = `<p class="pista">No se pudieron cargar los datos: ${esc(String(e))}</p>`; });
