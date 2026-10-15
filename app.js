@@ -43,7 +43,8 @@ async function inicia() {
   $("#btn-tasa").addEventListener("click", () => ponModo("tasa"));
   $("#ocultar-insuficientes").addEventListener("change", dibujaLista);
   dibujaPeriodos();
-  dibujaMensual();
+  $("#tab-estaciones").addEventListener("click", () => ponPestana("estaciones"));
+  $("#tab-graficas").addEventListener("click", () => ponPestana("graficas"));
   estadoRed();
   window.addEventListener("online", estadoRed);
   window.addEventListener("offline", estadoRed);
@@ -346,27 +347,283 @@ function pintaAviso() {
   } else a.innerHTML = "";
 }
 
-/* ------------------------------------------------------------------ por mes */
-// Solo la serie del estrato: por estación, casi todos los meses tienen 0 a 2 denuncias y un orden mensual sería ruido.
-function dibujaMensual() {
-  const M = D.mensual, S = M.serie, W = 720, H = 210, m = { l: 42, r: 10, t: 10, b: 24 };
-  const max = Math.ceil(Math.max(...S.map((p) => p.tasa_ic95[1])) * 2) / 2;
-  const x = (i) => m.l + (i + 0.5) * ((W - m.l - m.r) / S.length);
-  const y = (v) => H - m.b - (v / max) * (H - m.t - m.b);
-  const anchoAnio = 12 * ((W - m.l - m.r) / S.length);
-  let g = "";
-  for (let k = 0; k < 6; k++) g += `<rect class="banda-anio" data-anio="${2019 + k}" x="${m.l + k * anchoAnio}" y="${m.t}" width="${anchoAnio}" height="${H - m.t - m.b}"/>`;
-  for (let v = 0; v <= max + 1e-9; v += 0.5) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" class="reja"/><text x="${m.l - 5}" y="${y(v) + 3}" text-anchor="end">${num(v, 1)}</text>`;
-  for (let k = 0; k < 6; k++) g += `<text x="${m.l + (k + 0.5) * anchoAnio}" y="${H - 6}" text-anchor="middle">${2019 + k}</text>`;
-  const banda = S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_ic95[1]).toFixed(1)}`).join(" ") + " " + S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_ic95[0]).toFixed(1)}`).reverse().join(" ");
-  g += `<polygon points="${banda}" class="ic"/>`;
-  g += `<polyline points="${S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_denuncias_mm).toFixed(1)}`).join(" ")}" class="tasa"/>`;
-  S.forEach((p, i) => (g += `<circle cx="${x(i)}" cy="${y(p.tasa_denuncias_mm)}" r="2.2" class="punto"><title>${p.mes}: ${num(p.tasa_denuncias_mm, 2)} (${ic(p.tasa_ic95)}) · ${p.denuncias} denuncias</title></circle>`));
-  $("#mensual-grafica").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Denuncias por millón de entradas, por mes, en las 124 estaciones sin correspondencia, con intervalo al 95 %">${g}</svg>`;
-  $("#mensual-nota").textContent = `No se ordena por mes: en el ${num(M.pct_meses_estacion_0_a_2, 0)} % de los ${num(M.meses_estacion)} meses-estación hubo 0 a 2 denuncias (máximo ${M.max_denuncias_estacion_mes}).`;
+/* ------------------------------------------------------------------ pestaña «En el tiempo» */
+// Todas las gráficas: SVG a mano, sin librerías. Tooltip común (#tip-g) con puntero o toque.
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const PALETA = ["#d7263d", "#1b6ca8", "#e87511", "#118749", "#a02d96", "#b69c13", "#00a6a6", "#512826", "#e9468f", "#5b6b7b"];
+let graficasListas = false;
+
+function ponPestana(t) {
+  const g = t === "graficas";
+  document.body.classList.toggle("tab-graficas", g);
+  $("#tab-estaciones").setAttribute("aria-selected", !g);
+  $("#tab-graficas").setAttribute("aria-selected", g);
+  $("#graficas").hidden = !g;
+  $("#tip-g").hidden = true;
+  if (g && !graficasListas) { graficasListas = true; dibujaGraficas(); }
+  if (!g) ponRotulos();
+  window.scrollTo(0, 0);
 }
-function marcaAnioMensual() {
-  document.querySelectorAll(".banda-anio").forEach((r) => r.classList.toggle("activa", +r.dataset.anio === periodo));
+
+function tip(ev, html) {
+  const t = $("#tip-g");
+  if (!html) { t.hidden = true; return; }
+  t.innerHTML = html; t.hidden = false;
+  const w = t.offsetWidth, h = t.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 6) x = Math.max(6, ev.clientX - w - 14);
+  if (y + h > innerHeight - 6) y = Math.max(6, ev.clientY - h - 14);
+  t.style.left = x + "px"; t.style.top = y + "px";
+}
+// coordenadas del puntero en unidades del viewBox
+function enSvg(svg, ev) {
+  const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function montaSvg(caja, W, H, contenido, etiqueta) {
+  caja.querySelector(".g-svg").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${etiqueta}">${contenido}</svg>`;
+  const svg = caja.querySelector(".g-svg svg");
+  svg.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") tip(ev, null); });
+  return svg;
+}
+const ejeY = (m, W, y, max, paso, d = 1) => {
+  let g = "";
+  for (let v = 0; v <= max + 1e-9; v += paso) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" class="reja"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${num(v, d)}</text>`;
+  return g;
+};
+const techo = (v, paso) => Math.ceil(v / paso) * paso;
+
+function dibujaGraficas() {
+  graficaMensual();
+  ["m-desde", "m-hasta"].forEach((id) => $("#" + id).addEventListener("input", (ev) => {
+    const a = $("#m-desde"), b = $("#m-hasta");
+    if (+a.value > +b.value - 5) { if (ev.target === a) a.value = +b.value - 5; else b.value = +a.value + 5; }
+    graficaMensual();
+  }));
+  $("#m-todo").addEventListener("click", () => { $("#m-desde").value = 0; $("#m-hasta").value = 71; graficaMensual(); });
+  graficaAnualInicia();
+  graficaRed();
+  graficaDispersion();
+  graficaDistribucion();
+  graficaEstacional();
+  graficaHora();
+  $("#mensual-nota").textContent = `No se ordena por mes: en el ${num(D.mensual.pct_meses_estacion_0_a_2, 0)} % de los ${num(D.mensual.meses_estacion)} meses-estación hubo 0 a 2 denuncias (máximo ${D.mensual.max_denuncias_estacion_mes}).`;
+}
+
+// 1. Serie mensual con rango elegible. La marca del eje cae JUSTO en el punto del mes que nombra.
+function graficaMensual() {
+  if (!graficasListas) return;
+  const T = D.mensual.serie, i0 = +$("#m-desde").value, i1 = +$("#m-hasta").value, S = T.slice(i0, i1 + 1);
+  const W = innerWidth < 700 ? 720 : 1000, H = 300, m = { l: 48, r: 14, t: 10, b: 34 };
+  const max = techo(Math.max(...S.map((p) => p.tasa_ic95[1])), 0.5);
+  const paso = (W - m.l - m.r) / Math.max(1, S.length - 1);
+  const x = (i) => m.l + i * paso, y = (v) => H - m.b - (v / max) * (H - m.t - m.b);
+  let g = ejeY(m, W, y, max, 0.5);
+  const cada = S.length > 30 ? 12 : S.length > 12 ? 3 : 1;
+  S.forEach((p, i) => {
+    const mes = +p.mes.slice(5) - 1, anio = +p.mes.slice(0, 4);
+    if (anio === periodo) g += `<rect x="${x(i) - paso / 2}" y="${m.t}" width="${paso}" height="${H - m.t - m.b}" class="banda-anio"/>`;
+    if (mes % cada === 0) g += `<line x1="${x(i)}" x2="${x(i)}" y1="${H - m.b}" y2="${H - m.b + 5}" stroke="#7a8794"/><text x="${x(i)}" y="${H - m.b + 20}" text-anchor="${i === 0 ? "start" : "middle"}">${cada === 12 ? anio : MESES[mes] + " " + String(anio).slice(2)}</text>`;
+  });
+  const banda = S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_ic95[1]).toFixed(1)}`).join(" ") + " " + S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_ic95[0]).toFixed(1)}`).reverse().join(" ");
+  g += `<polygon points="${banda}" class="ic"/><polyline points="${S.map((p, i) => `${x(i).toFixed(1)},${y(p.tasa_denuncias_mm).toFixed(1)}`).join(" ")}" class="tasa"/>`;
+  S.forEach((p, i) => (g += `<circle cx="${x(i)}" cy="${y(p.tasa_denuncias_mm)}" r="${S.length > 40 ? 2.2 : 3.5}" class="punto"/>`));
+  g += `<line class="guia" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" visibility="hidden"/><circle class="foco" r="5.5" visibility="hidden"/>`;
+  const caja = $("#g-mensual");
+  const svg = montaSvg(caja, W, H, g, "Denuncias por millón de entradas por mes, con intervalo al 95 %");
+  const f = (p) => `${MESES[+p.mes.slice(5) - 1]} ${p.mes.slice(0, 4)}`;
+  $("#m-rango").textContent = `${f(S[0])} – ${f(S[S.length - 1])}`;
+  const guia = svg.querySelector(".guia"), foco = svg.querySelector(".foco");
+  svg.addEventListener("pointermove", (ev) => {
+    const q = enSvg(svg, ev), i = Math.max(0, Math.min(S.length - 1, Math.round((q.x - m.l) / paso))), p = S[i];
+    guia.setAttribute("x1", x(i)); guia.setAttribute("x2", x(i)); guia.setAttribute("visibility", "visible");
+    foco.setAttribute("cx", x(i)); foco.setAttribute("cy", y(p.tasa_denuncias_mm)); foco.setAttribute("visibility", "visible");
+    tip(ev, `<b>${f(p)}</b><br>${num(p.tasa_denuncias_mm, 2)} por millón de entradas<br>IC 95 %: ${ic(p.tasa_ic95)}<br>${num(p.denuncias)} denuncias`);
+  });
+  svg.addEventListener("pointerleave", () => { guia.setAttribute("visibility", "hidden"); foco.setAttribute("visibility", "hidden"); });
+}
+function marcaAnioMensual() { graficaMensual(); }
+
+// Gráfica de líneas por año con leyenda que aísla. series: [{nombre, color, puntos: [{anio, v, ic, den}]}]
+function lineasAnuales(caja, series, etiqueta) {
+  const W = 720, H = 260, m = { l: 50, r: 14, t: 12, b: 28 }, anios = [2019, 2020, 2021, 2022, 2023, 2024];
+  let aislada = caja.dataset.aislada || null;
+  if (aislada && !series.some((s) => s.nombre === aislada)) aislada = null;
+  const visibles = series.filter((s) => !aislada || s.nombre === aislada);
+  const vmax = Math.max(...visibles.flatMap((s) => s.puntos.map((p) => Math.min(p.ic[1], p.v * 2.2))), 0.5);
+  const max = techo(vmax, vmax > 3 ? 1 : 0.5), y = (v) => H - m.b - (Math.min(v, max) / max) * (H - m.t - m.b);
+  const x = (a) => m.l + 20 + ((a - 2019) / 5) * (W - m.l - m.r - 40);
+  let g = ejeY(m, W, y, max, max > 3 ? 1 : 0.5);
+  anios.forEach((a) => (g += `<text x="${x(a)}" y="${H - 8}" text-anchor="middle">${a}</text>`));
+  visibles.forEach((s) => {
+    // un año cerrado corta la línea
+    let tramo = [];
+    const tramos = [];
+    anios.forEach((a) => { const p = s.puntos.find((q) => q.anio === a); if (p) tramo.push(p); else if (tramo.length) { tramos.push(tramo); tramo = []; } });
+    if (tramo.length) tramos.push(tramo);
+    if (aislada) s.puntos.forEach((p) => (g += `<line x1="${x(p.anio)}" x2="${x(p.anio)}" y1="${y(p.ic[0])}" y2="${y(p.ic[1])}" stroke="${s.color}" stroke-width="2" opacity=".45"/>`));
+    tramos.forEach((t) => (g += `<polyline class="serie-l" data-n="${esc(s.nombre)}" points="${t.map((p) => `${x(p.anio)},${y(p.v)}`).join(" ")}" stroke="${s.color}"/>`));
+    s.puntos.forEach((p) => (g += `<circle cx="${x(p.anio)}" cy="${y(p.v)}" r="3.6" fill="${s.color}" data-n="${esc(s.nombre)}"/>`));
+  });
+  g += `<circle class="foco" r="6.5" visibility="hidden"/>`;
+  const svg = montaSvg(caja, W, H, g, etiqueta), foco = svg.querySelector(".foco");
+  svg.addEventListener("pointermove", (ev) => {
+    const q = enSvg(svg, ev);
+    let mejor = null, dmin = 1e9;
+    visibles.forEach((s) => s.puntos.forEach((p) => { const d = Math.hypot(x(p.anio) - q.x, y(p.v) - q.y); if (d < dmin) { dmin = d; mejor = [s, p]; } }));
+    if (!mejor || dmin > 60) { foco.setAttribute("visibility", "hidden"); tip(ev, null); return; }
+    const [s, p] = mejor;
+    foco.setAttribute("cx", x(p.anio)); foco.setAttribute("cy", y(p.v)); foco.setAttribute("stroke", s.color); foco.setAttribute("visibility", "visible");
+    svg.querySelectorAll(".serie-l").forEach((l) => l.classList.toggle("tenue", l.dataset.n !== s.nombre));
+    tip(ev, `<b>${esc(s.nombre)} · ${p.anio}</b><br>${num(p.v, 2)} por millón de entradas<br>IC 95 %: ${ic(p.ic)}<br>${num(p.den)} denuncias${p.den < MIN() && s.estacion ? " · evidencia insuficiente" : ""}`);
+  });
+  svg.addEventListener("pointerleave", () => { foco.setAttribute("visibility", "hidden"); svg.querySelectorAll(".serie-l").forEach((l) => l.classList.remove("tenue")); });
+  const ley = caja.querySelector(".g-leyenda");
+  ley.innerHTML = "";
+  series.forEach((s) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ley" + (aislada && aislada !== s.nombre ? " apagada" : "");
+    b.setAttribute("aria-pressed", aislada === s.nombre);
+    b.innerHTML = `<i style="background:${s.color}"></i>${esc(s.nombre)}`;
+    b.addEventListener("click", () => { caja.dataset.aislada = aislada === s.nombre ? "" : s.nombre; lineasAnuales(caja, series, etiqueta); });
+    ley.appendChild(b);
+  });
+}
+
+// 2. Serie anual por estación: top por tasa (modelo) o por conteo, con 15 denuncias o más; se pueden agregar otras.
+let anualGrupo = "tasa", anualExtra = [];
+function graficaAnualInicia() {
+    [["tasa", "Top 8 por tasa"], ["conteo", "Top 8 por conteo"]].forEach(([k, t]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = t; b.dataset.k = k;
+    b.setAttribute("aria-pressed", k === anualGrupo);
+    b.addEventListener("click", () => { anualGrupo = k; anualExtra = []; $("#g-anual").dataset.aislada = ""; document.querySelectorAll("#anual-grupo button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.k === k)); graficaAnual(); });
+    $("#anual-grupo").appendChild(b);
+  });
+  const sel = $("#anual-agrega");
+  D.estaciones.filter((s) => s.estrato === "a").sort((p, q) => p.nombre.localeCompare(q.nombre)).forEach((s) => sel.add(new Option(s.nombre, s.nombre)));
+  sel.addEventListener("change", () => { if (sel.value && !anualExtra.includes(sel.value)) anualExtra.push(sel.value); sel.value = ""; graficaAnual(); });
+  graficaAnual();
+}
+function graficaAnual() {
+  const a = D.estaciones.filter((s) => s.estrato === "a" && !s.evidencia_insuficiente);
+  const clave = anualGrupo === "tasa" ? "pos_encogida" : "pos_conteo";
+  const top = a.sort((p, q) => p[clave] - q[clave]).slice(0, 8).map((s) => s.nombre);
+  const nombres = [...top, ...anualExtra.filter((n) => !top.includes(n))];
+  const series = nombres.map((n, i) => ({ nombre: n, estacion: true, color: PALETA[i % PALETA.length],
+    puntos: porNombre[n].serie.filter((p) => !p.cerrada).map((p) => ({ anio: p.anio, v: p.tasa_denuncias_mm, ic: p.tasa_ic95, den: p.denuncias })) }));
+  lineasAnuales($("#g-anual"), series, "Tasa cruda de denuncias por año, por estación");
+}
+
+// 3. Red completa contra el estrato, por año (c3_por_anio)
+function graficaRed() {
+  const nombres = { red: "Red completa (todas las carpetas)", estrato: "124 estaciones sin correspondencia" };
+  const series = ["red", "estrato"].map((k, i) => ({ nombre: nombres[k], color: i ? "#f05a1a" : "#10233f",
+    puntos: D.mensual.anual.filter((p) => p.serie.startsWith(k)).map((p) => ({ anio: p.anio, v: p.tasa_denuncias_mm, ic: p.tasa_ic95, den: p.denuncias })) }));
+  lineasAnuales($("#g-red"), series, "Tasa de denuncias por año: red completa contra estrato");
+}
+
+// 4. Dispersión: denuncias (escala log) contra tasa cruda, las 124. Tocar un punto abre su ficha.
+function graficaDispersion() {
+  const A = D.estaciones.filter((s) => s.estrato === "a");
+  $("#disp-sub").textContent = `Las 124 estaciones. ρ de Spearman = ${num(D.mensual.spearman_conteo_tasa, 3)}: el conteo y la tasa ordenan distinto. Toca un punto para ver su ficha.`;
+  const W = 720, H = 340, m = { l: 50, r: 14, t: 12, b: 50 };
+  const lx = (v) => Math.log10(v), x0 = lx(1), x1 = lx(Math.max(...A.map((s) => s.denuncias)) * 1.15);
+  const ymax = techo(Math.max(...A.map((s) => s.tasa_denuncias_mm)), 0.5);
+  const x = (v) => m.l + ((lx(v) - x0) / (x1 - x0)) * (W - m.l - m.r), y = (v) => H - m.b - (v / ymax) * (H - m.t - m.b);
+  let g = ejeY(m, W, y, ymax, ymax > 3 ? 1 : 0.5);
+  [1, 2, 5, 10, 20, 50, 100].forEach((v) => (g += `<line x1="${x(v)}" x2="${x(v)}" y1="${m.t}" y2="${H - m.b}" class="reja"/><text x="${x(v)}" y="${H - m.b + 16}" text-anchor="middle">${v}</text>`));
+  g += `<text x="${(W + m.l) / 2}" y="${H - 8}" text-anchor="middle">denuncias en 2019–2024 (escala log)</text>`;
+  g += `<line x1="${x(MIN())}" x2="${x(MIN())}" y1="${m.t}" y2="${H - m.b}" class="corte-min"/><text x="${x(MIN()) - 4}" y="${m.t + 10}" text-anchor="end">&lt; ${MIN()}: evidencia insuficiente</text>`;
+  A.forEach((s) => (g += `<circle cx="${x(s.denuncias).toFixed(1)}" cy="${y(s.tasa_denuncias_mm).toFixed(1)}" r="4.2" class="pt ${s.evidencia_insuficiente ? "pt-insuf" : "pt-" + s.estatus}" data-n="${esc(s.nombre)}"/>`));
+  g += `<circle class="foco" r="8" visibility="hidden"/>`;
+  const svg = montaSvg($("#g-dispersion"), W, H, g, "Denuncias contra tasa cruda, 124 estaciones"), foco = svg.querySelector(".foco");
+  const cerca = (ev) => { const q = enSvg(svg, ev); let b = null, d = 1e9; A.forEach((s) => { const k = Math.hypot(x(s.denuncias) - q.x, y(s.tasa_denuncias_mm) - q.y); if (k < d) { d = k; b = s; } }); return d < 30 ? b : null; };
+  svg.addEventListener("pointermove", (ev) => {
+    const s = cerca(ev);
+    if (!s) { foco.setAttribute("visibility", "hidden"); tip(ev, null); return; }
+    foco.setAttribute("cx", x(s.denuncias)); foco.setAttribute("cy", y(s.tasa_denuncias_mm)); foco.setAttribute("visibility", "visible");
+    tip(ev, `<b>${esc(s.nombre)}</b><br>${num(s.denuncias)} denuncias · lugar ${s.pos_conteo} por conteo<br>tasa cruda ${num(s.tasa_denuncias_mm, 2)} (IC ${ic(s.tasa_ic95)})<br>${s.evidencia_insuficiente ? "evidencia insuficiente" : ESTATUS[s.estatus].glifo + " " + ESTATUS[s.estatus].corto}`);
+  });
+  svg.addEventListener("click", (ev) => { const s = cerca(ev); if (s) { ponPestana("estaciones"); elige(s.nombre); } });
+}
+
+// 5. Distribución de la tasa cruda, apilando las de evidencia insuficiente
+function graficaDistribucion() {
+  const A = D.estaciones.filter((s) => s.estrato === "a"), ancho = 0.25;
+  const nb = Math.ceil(Math.max(...A.map((s) => s.tasa_denuncias_mm)) / ancho);
+  const bins = Array.from({ length: nb }, (_, i) => ({ de: i * ancho, suf: [], ins: [] }));
+  A.forEach((s) => bins[Math.min(nb - 1, Math.floor(s.tasa_denuncias_mm / ancho))][s.evidencia_insuficiente ? "ins" : "suf"].push(s.nombre));
+  const ninsuf = A.filter((s) => s.evidencia_insuficiente).length;
+  $("#dist-sub").innerHTML = `Tasa cruda de las 124. <span class="cuadro"></span> ${124 - ninsuf} con ${MIN()} denuncias o más · <span class="cuadro insuf"></span> ${ninsuf} con evidencia insuficiente.`;
+  const W = 720, H = 250, m = { l: 50, r: 14, t: 12, b: 50 };
+  const cmax = techo(Math.max(...bins.map((b) => b.suf.length + b.ins.length)), 5);
+  const bw = (W - m.l - m.r) / nb, y = (v) => H - m.b - (v / cmax) * (H - m.t - m.b);
+  let g = ejeY(m, W, y, cmax, 5, 0);
+  bins.forEach((b, i) => {
+    const X = m.l + i * bw;
+    g += `<rect x="${X + 1}" y="${y(b.suf.length)}" width="${bw - 2}" height="${y(0) - y(b.suf.length)}" class="barra" data-i="${i}"/>`;
+    g += `<rect x="${X + 1}" y="${y(b.suf.length + b.ins.length)}" width="${bw - 2}" height="${y(b.suf.length) - y(b.suf.length + b.ins.length)}" class="barra insuf" data-i="${i}"/>`;
+    if (i % 2 === 0) g += `<text x="${X}" y="${H - m.b + 16}" text-anchor="middle">${num(b.de, 1)}</text>`;
+  });
+  g += `<text x="${(W + m.l) / 2}" y="${H - 8}" text-anchor="middle">denuncias por millón de entradas</text>`;
+  const svg = montaSvg($("#g-distribucion"), W, H, g, "Histograma de la tasa cruda");
+  svg.addEventListener("pointermove", (ev) => {
+    const q = enSvg(svg, ev), i = Math.floor((q.x - m.l) / bw), b = bins[i];
+    svg.querySelectorAll(".barra").forEach((r) => r.classList.toggle("activa", +r.dataset.i === i));
+    if (!b || !(b.suf.length + b.ins.length)) { tip(ev, null); return; }
+    const lista = (l) => l.slice(0, 5).map(esc).join(", ") + (l.length > 5 ? ` y ${l.length - 5} más` : "");
+    tip(ev, `<b>${num(b.de, 2)} a ${num(b.de + ancho, 2)}</b><br>${b.suf.length} con ${MIN()}+ denuncias${b.suf.length ? ": " + lista(b.suf) : ""}<br>${b.ins.length} insuficientes${b.ins.length ? ": " + lista(b.ins) : ""}`);
+  });
+  svg.addEventListener("pointerleave", () => svg.querySelectorAll(".barra").forEach((r) => r.classList.remove("activa")));
+}
+
+// 6. Estacionalidad: tasa por mes del año, régimen normal (eda_estacionalidad)
+function graficaEstacional() {
+  const E = D.mensual.estacionalidad, W = 720, H = 220, m = { l: 60, r: 14, t: 12, b: 28 };
+  const max = techo(Math.max(...E.map((p) => p.tasa_ic95[1])), 0.25);
+  const x = (i) => m.l + 20 + (i / 11) * (W - m.l - m.r - 40), y = (v) => H - m.b - (v / max) * (H - m.t - m.b);
+  let g = ejeY(m, W, y, max, 0.25, 2);
+  E.forEach((p, i) => {
+    g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${MESES[p.mes - 1]}</text>`;
+    g += `<line x1="${x(i)}" x2="${x(i)}" y1="${y(p.tasa_ic95[0])}" y2="${y(p.tasa_ic95[1])}" stroke="#f05a1a" stroke-width="3" opacity=".35"/>`;
+    g += `<circle cx="${x(i)}" cy="${y(p.tasa_denuncias_mm)}" r="5" class="punto"/>`;
+  });
+  g += `<circle class="foco" r="8" visibility="hidden"/>`;
+  const svg = montaSvg($("#g-estacional"), W, H, g, "Tasa de denuncias por mes del año"), foco = svg.querySelector(".foco");
+  svg.addEventListener("pointermove", (ev) => {
+    const q = enSvg(svg, ev), i = Math.max(0, Math.min(11, Math.round(((q.x - m.l - 20) / (W - m.l - m.r - 40)) * 11))), p = E[i];
+    foco.setAttribute("cx", x(i)); foco.setAttribute("cy", y(p.tasa_denuncias_mm)); foco.setAttribute("visibility", "visible");
+    tip(ev, `<b>${MESES[p.mes - 1]}</b> (${p.n_meses} años)<br>${num(p.tasa_denuncias_mm, 2)} por millón de entradas<br>IC 95 %: ${ic(p.tasa_ic95)}<br>${num(p.denuncias)} denuncias`);
+  });
+  svg.addEventListener("pointerleave", () => foco.setAttribute("visibility", "hidden"));
+}
+
+// 7. Hora × día de la semana: conteos (eda_hora_dia_estrato)
+function graficaHora() {
+  const M = D.mensual.hora_dia, W = 720, H = 230, m = { l: 52, r: 8, t: 8, b: 26 };
+  const max = Math.max(...M.flat());
+  const cw = (W - m.l - m.r) / 24, ch = (H - m.t - m.b) / 7;
+  let g = "";
+  M.forEach((fila, d) => {
+    g += `<text x="${m.l - 6}" y="${m.t + d * ch + ch / 2 + 4}" text-anchor="end">${DIAS[d].slice(0, 3)}</text>`;
+    fila.forEach((v, h) => {
+      const k = Math.sqrt(v / max);
+      g += `<rect x="${m.l + h * cw + 0.5}" y="${m.t + d * ch + 0.5}" width="${cw - 1}" height="${ch - 1}" rx="2" fill="rgb(${Math.round(255 - k * (255 - 16))},${Math.round(255 - k * (255 - 35))},${Math.round(255 - k * (255 - 63))})" class="celda"/>`;
+    });
+  });
+  for (let h = 0; h < 24; h += 3) g += `<text x="${m.l + h * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${h} h</text>`;
+  g += `<rect class="marco" width="${cw}" height="${ch}" visibility="hidden"/>`;
+  const svg = montaSvg($("#g-hora"), W, H, g, "Denuncias por hora del día y día de la semana"), marco = svg.querySelector(".marco");
+  svg.addEventListener("pointermove", (ev) => {
+    const q = enSvg(svg, ev), h = Math.floor((q.x - m.l) / cw), d = Math.floor((q.y - m.t) / ch);
+    if (h < 0 || h > 23 || d < 0 || d > 6) { marco.setAttribute("visibility", "hidden"); tip(ev, null); return; }
+    marco.setAttribute("x", m.l + h * cw); marco.setAttribute("y", m.t + d * ch); marco.setAttribute("visibility", "visible");
+    tip(ev, `<b>${DIAS[d]}, ${h}:00 a ${h}:59</b><br>${num(M[d][h])} denuncias`);
+  });
+  svg.addEventListener("pointerleave", () => marco.setAttribute("visibility", "hidden"));
 }
 
 /* ------------------------------------------------------------------ detalle */

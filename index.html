@@ -19,6 +19,10 @@
     <button id="btn-tasa" type="button" aria-pressed="false">TASA<small>por millón de entradas</small></button>
   </div>
 </header>
+<nav class="pestanas" role="tablist" aria-label="Vistas">
+  <button id="tab-estaciones" role="tab" type="button" aria-selected="true">Estaciones</button>
+  <button id="tab-graficas" role="tab" type="button" aria-selected="false">En el tiempo</button>
+</nav>
 <div class="cinta" aria-hidden="true"><span style="background:#e9468f"></span><span style="background:#00599f"></span><span style="background:#b69c13"></span><span style="background:#6cbab1"></span><span style="background:#fdd200"></span><span style="background:#d81c23"></span><span style="background:#e87511"></span><span style="background:#118749"></span><span style="background:#512826"></span><span style="background:#a02d96"></span><span style="background:#118751"></span><span style="background:#b99e51"></span></div>
 
 <main>
@@ -62,12 +66,47 @@
   <p>Ninguna está mal: optimizan objetivos distintos.</p>
 </section>
 
-<section id="mensual" aria-label="Por mes">
-  <h2>Por mes, las 124 estaciones juntas</h2>
-  <p class="sub">Denuncias por millón de entradas, con intervalo al 95 %.</p>
-  <div id="mensual-grafica"></div>
-  <p id="mensual-nota" class="nota"></p>
+<section id="graficas" aria-label="En el tiempo" hidden>
+  <div class="g-caja" id="g-mensual">
+    <h2>Por mes, las 124 estaciones juntas</h2>
+    <p class="sub">Denuncias por millón de entradas, con intervalo al 95 %. Arrastra los extremos para acercar.</p>
+    <div class="rango"><label>Desde <input type="range" id="m-desde" min="0" max="71" value="0"></label><output id="m-rango"></output><label>Hasta <input type="range" id="m-hasta" min="0" max="71" value="71"></label><button type="button" id="m-todo">Todo</button></div>
+    <div class="g-svg"></div>
+    <p id="mensual-nota" class="nota"></p>
+  </div>
+  <div class="g-caja" id="g-anual">
+    <h2>Por año, estación por estación</h2>
+    <p class="sub">Tasa cruda por año. Toca un nombre para aislarlo.</p>
+    <div class="g-controles"><div class="periodos" id="anual-grupo"></div><select id="anual-agrega" aria-label="Agregar estación"><option value="">+ agregar estación</option></select></div>
+    <div class="g-svg"></div><div class="g-leyenda"></div>
+  </div>
+  <div class="g-caja" id="g-red">
+    <h2>Red completa contra las 124 estaciones</h2>
+    <p class="sub">Denuncias por millón de entradas, por año.</p>
+    <div class="g-svg"></div><div class="g-leyenda"></div>
+  </div>
+  <div class="g-caja" id="g-dispersion">
+    <h2>Conteo contra tasa</h2>
+    <p class="sub" id="disp-sub"></p>
+    <div class="g-svg"></div>
+  </div>
+  <div class="g-caja" id="g-distribucion">
+    <h2>Cómo se reparten las tasas</h2>
+    <p class="sub" id="dist-sub"></p>
+    <div class="g-svg"></div>
+  </div>
+  <div class="g-caja" id="g-estacional">
+    <h2>Por mes del año</h2>
+    <p class="sub">Las 124 estaciones; sin enero–agosto de 2019 ni abril–junio de 2020.</p>
+    <div class="g-svg"></div>
+  </div>
+  <div class="g-caja" id="g-hora">
+    <h2>Por hora y día</h2>
+    <p class="sub">Conteos de denuncias, no tasas: no hay afluencia por hora.</p>
+    <div class="g-svg"></div>
+  </div>
 </section>
+<div id="tip-g" hidden></div>
 
 <details id="como">
   <summary>¿Cómo se calcula?</summary>
