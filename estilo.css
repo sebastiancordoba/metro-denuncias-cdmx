@@ -194,6 +194,52 @@ body.tab-graficas #pantalla { height: auto !important; min-height: 0 !important;
 .ley[aria-pressed="true"] { border-color: var(--tinta); font-weight: 700; }
 #tip-g { position: fixed; z-index: 10; pointer-events: none; background: var(--tinta); color: #fff; font-size: .78rem; line-height: 1.35; padding: .4rem .6rem; border-radius: 8px; max-width: 17rem; }
 
+/* --- «Dónde desplegar»: tres listas lado a lado; en teléfono, una a la vez */
+#desplegar { padding: 1rem 1.1rem 0; }
+#desplegar[hidden] { display: none; }
+.desp-aviso { background: #fff1d6; border: 2px dashed var(--naranja); border-radius: 10px; padding: .5rem .8rem; margin: 0 0 .8rem; font-size: .9rem; }
+.d-cabeza h2 { font-size: 1.25rem; font-weight: 800; margin: 0; }
+.d-cabeza .sub { margin: .2rem 0 .8rem; font-size: .85rem; color: var(--tinta-2); }
+.clave { white-space: nowrap; margin-left: .4rem; }
+.clave b { color: var(--naranja); letter-spacing: -.1em; }
+.d-selector { display: none; }
+.d-controles { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: .5rem 0 .2rem; }
+.d-controles .periodos { margin: 0; }
+.d-resumen { display: none; }
+.d-resumen table { width: 100%; border-collapse: collapse; font-size: .85rem; background: var(--papel); border-radius: 12px; overflow: hidden; }
+.d-resumen th, .d-resumen td { padding: .4rem .5rem; text-align: right; border-bottom: 1px solid var(--regla); font-variant-numeric: tabular-nums; }
+.d-resumen th:first-child { text-align: left; }
+.d-resumen thead th { font-size: .72rem; color: var(--tinta-2); }
+.d-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.d-col { background: var(--papel); border: 1px solid var(--regla); border-top: 6px solid var(--tinta); border-radius: 14px; padding: .8rem .9rem; display: flex; flex-direction: column; }
+.d-col[data-k="1"] { border-top-color: var(--alto); }
+.d-col[data-k="2"] { border-top-color: var(--naranja); }
+.d-col h3 { margin: 0; font-size: 1.15rem; font-weight: 800; }
+.d-col .sub { margin: .1rem 0 .5rem; font-size: .78rem; color: var(--tinta-2); min-height: 2.2em; }
+.d-col ol { list-style: none; margin: 0; padding: 0; flex: 1; }
+.d-col li { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; gap: .5rem; align-items: center; padding: .35rem .4rem; border-radius: 8px; margin-bottom: .2rem; font-size: .9rem; cursor: default; }
+.d-col li .pos { font-weight: 800; color: var(--tinta-2); text-align: right; font-variant-numeric: tabular-nums; }
+.d-col li .veces { color: var(--naranja); font-size: .7rem; letter-spacing: -.05em; }
+.d-col li.en-3 { background: var(--tinta); color: #fff; font-weight: 700; }
+.d-col li.en-3 .pos { color: #c3d0dd; }
+.d-col li.en-2 { background: #dfe7ef; font-weight: 700; }
+.d-col li.en-1 { background: #fff; border: 1px solid #e6ecf1; }
+.d-col li.resalta { outline: 3px solid var(--naranja); outline-offset: -1px; }
+.d-col li .etiqueta { font-size: .6rem; margin-left: .3rem; }
+.d-cubre { margin: .7rem 0 0; padding-top: .6rem; border-top: 2px solid var(--regla); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+.d-cubre dt { font-size: .68rem; color: var(--tinta-2); line-height: 1.2; min-height: 2.4em; }
+.d-cubre dd { margin: .15rem 0 0; font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+@media (max-width: 860px) {
+  #desplegar { padding: .6rem .6rem 0; }
+  .d-selector { display: flex; }
+  .d-resumen { display: block; margin-top: .6rem; }
+  .pestanas button { font-size: .82rem; padding: .45rem .6rem; white-space: nowrap; }
+  .d-cols { grid-template-columns: 1fr; }
+  .d-col { display: none; }
+  .d-col.activa { display: flex; }
+  .clave { display: block; margin: .3rem 0 0; }
+}
+
 /* --- ¿cómo se calcula?: lo explicativo, plegado */
 details.como { margin-top: .6rem; font-size: .8rem; color: var(--tinta-2); }
 details.como p { margin: .35rem 0 0; }

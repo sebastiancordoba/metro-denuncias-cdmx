@@ -22,6 +22,7 @@
 <nav class="pestanas" role="tablist" aria-label="Vistas">
   <button id="tab-estaciones" role="tab" type="button" aria-selected="true">Estaciones</button>
   <button id="tab-graficas" role="tab" type="button" aria-selected="false">En el tiempo</button>
+  <button id="tab-desplegar" role="tab" type="button" aria-selected="false">Dónde desplegar</button>
 </nav>
 <div class="cinta" aria-hidden="true"><span style="background:#e9468f"></span><span style="background:#00599f"></span><span style="background:#b69c13"></span><span style="background:#6cbab1"></span><span style="background:#fdd200"></span><span style="background:#d81c23"></span><span style="background:#e87511"></span><span style="background:#118749"></span><span style="background:#512826"></span><span style="background:#a02d96"></span><span style="background:#118751"></span><span style="background:#b99e51"></span></div>
 
@@ -50,9 +51,9 @@
 </main>
 </div>
 
-<!-- Bloque estático. Los cuatro números están escritos a mano; src/metro/06_app_datos.py truena si dejan de coincidir con el modelo. -->
-<section id="dos-reglas" aria-label="Dos reglas para elegir dónde desplegar">
-  <h2>Dos reglas, probadas en 2024</h2>
+<!-- Bloque estático. Los números están escritos a mano; src/metro/06_app_datos.py truena si dejan de coincidir con el modelo. -->
+<section id="dos-reglas" aria-label="Tres reglas para elegir dónde desplegar">
+  <h2>Tres reglas, probadas en 2024</h2>
   <p class="sub">10 estaciones elegidas con datos de 2019 a 2023; se mide lo que pasó en 2024.</p>
   <div class="tabla-caja">
     <table>
@@ -60,10 +61,11 @@
       <tbody>
         <tr><th>tasa del modelo</th><td>41</td><td><strong>0.77</strong></td><td>53 M de entradas</td></tr>
         <tr><th>conteo</th><td><strong>92</strong></td><td>0.57</td><td>160 M de entradas</td></tr>
+        <tr><th>la que proponemos</th><td>59</td><td>0.75</td><td>79 M de entradas</td></tr>
       </tbody>
     </table>
   </div>
-  <p>Ninguna está mal: optimizan objetivos distintos.</p>
+  <p>La que proponemos combina las dos: promedio del lugar por conteo y por tasa, solo con 15 denuncias o más.</p>
 </section>
 
 <section id="graficas" aria-label="En el tiempo" hidden>
@@ -105,6 +107,16 @@
     <p class="sub">Conteos de denuncias, no tasas: no hay afluencia por hora.</p>
     <div class="g-svg"></div>
   </div>
+</section>
+<section id="desplegar" aria-label="Dónde desplegar" hidden>
+  <div class="d-cabeza">
+    <h2>Tres formas de elegir dónde desplegar</h2>
+    <div class="d-controles"><div id="desp-vista" class="periodos" role="group" aria-label="Vista"></div><div id="desp-k" class="periodos" role="group" aria-label="Cuántas"></div></div>
+    <p class="sub"><span id="desp-nota"></span> <span class="clave"><b>●●●</b> en las tres · <b>●●○</b> en dos · <b>●○○</b> solo en esa</span></p>
+  </div>
+  <div id="desp-selector" class="periodos d-selector" role="group" aria-label="Lista"></div>
+  <div id="desp-cols" class="d-cols"></div>
+  <div id="desp-resumen" class="d-resumen"></div>
 </section>
 <div id="tip-g" hidden></div>
 
