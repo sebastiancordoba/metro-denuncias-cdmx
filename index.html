@@ -15,8 +15,9 @@
     <p class="corte">Denuncias de 2019 a 2024 · corte al <strong>31 de enero de 2025</strong> <span id="estado-red" class="estado"></span></p>
   </div>
   <div class="interruptor" role="group" aria-label="Ordenar por">
-    <button id="btn-conteo" type="button" aria-pressed="true">CONTEO<small>denuncias</small></button>
+    <button id="btn-conteo" type="button" aria-pressed="false">CONTEO<small>denuncias</small></button>
     <button id="btn-tasa" type="button" aria-pressed="false">TASA<small>por millón de entradas</small></button>
+    <button id="btn-prioridad" type="button" aria-pressed="true">PRIORIDAD<small>volumen y riesgo</small></button>
   </div>
 </header>
 <nav class="pestanas" role="tablist" aria-label="Vistas">
@@ -61,11 +62,11 @@
       <tbody>
         <tr><th>tasa del modelo</th><td>41</td><td><strong>0.77</strong></td><td>53 M de entradas</td></tr>
         <tr><th>conteo</th><td><strong>92</strong></td><td>0.57</td><td>160 M de entradas</td></tr>
-        <tr><th>la que proponemos</th><td>59</td><td>0.75</td><td>79 M de entradas</td></tr>
+        <tr><th>prioridad (volumen y riesgo)</th><td>59</td><td>0.75</td><td>79 M de entradas</td></tr>
       </tbody>
     </table>
   </div>
-  <p>La que proponemos combina las dos: promedio del lugar por conteo y por tasa, solo con 15 denuncias o más.</p>
+  <p>La prioridad combina las dos: promedio del lugar por conteo y por tasa, solo con 15 denuncias o más.</p>
 </section>
 
 <section id="graficas" aria-label="En el tiempo" hidden>
@@ -127,6 +128,7 @@
     <li><strong>Tasa:</strong> denuncias por millón de entradas por torniquete, encogida por un modelo binomial negativo según la evidencia de cada estación. Intervalos al 95 %.</li>
     <li><strong>124 estaciones sin correspondencia.</strong> Solo 25 se distinguen de una estación típica (▲ 14, ▼ 11); 99 no.</li>
     <li><strong>Correspondencias (rombos):</strong> quien transborda no pasa por el torniquete, así que su tasa no es comparable y no se ordenan. Hidalgo y Guerrero tienen unas tres veces la tasa de correspondencias comparables, sin explicación con datos abiertos.</li>
+    <li><strong>Prioridad (volumen y riesgo):</strong> promedio del lugar por conteo y del lugar por tasa, solo entre estaciones con 15 denuncias o más; las demás van al final. Se calcula con 2019–2024 completo, no por año.</li>
     <li><strong>Por año:</strong> tasa cruda de ese año (denuncias ÷ entradas) con intervalo de Byar al 95 %; el modelo encogido es solo para 2019–2024 completo.</li>
     <li><strong>Menos de 15 denuncias:</strong> evidencia insuficiente, no entra en ninguna recomendación.</li>
     <li><strong>Corte:</strong> 31 de enero de 2025. El 19.1 % de las carpetas no se pudo ubicar en una estación. El plano es esquemático: el centro va ampliado.</li>

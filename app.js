@@ -15,7 +15,8 @@ const num = (x, d = 0) => x.toLocaleString("es-MX", { minimumFractionDigits: d, 
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const ic = (p, d = 2) => `${num(p[0], d)} a ${num(p[1], d)}`;
 
-let D, porNombre = {}, modo = "conteo", periodo = "todo", elegida = null, vista = null, vistaTotal = null, nodos = [];
+// modo: «conteo», «tasa» o «prioridad» (la lista combinada: promedio de los dos lugares, con 15 denuncias o más). Abre en prioridad.
+let D, porNombre = {}, modo = "prioridad", periodo = "todo", elegida = null, vista = null, vistaTotal = null, nodos = [];
 
 const ESTATUS = {
   arriba: { glifo: "▲", corto: "distinguible por arriba", clase: "arriba" },
@@ -39,10 +40,12 @@ async function inicia() {
   dibujaMapa();
   dibujaLeyenda();
   dibujaLista();
-  $("#btn-conteo").addEventListener("click", () => ponModo("conteo"));
-  $("#btn-tasa").addEventListener("click", () => ponModo("tasa"));
+  ["conteo", "tasa", "prioridad"].forEach((m) => $("#btn-" + m).addEventListener("click", () => ponModo(m)));
   $("#ocultar-insuficientes").addEventListener("change", dibujaLista);
   dibujaPeriodos();
+  document.body.classList.toggle("modo-prioridad", modo === "prioridad");
+  ponPeriodosDisponibles();
+  pintaAviso();
   $("#tab-estaciones").addEventListener("click", () => ponPestana("estaciones"));
   $("#tab-graficas").addEventListener("click", () => ponPestana("graficas"));
   $("#tab-desplegar").addEventListener("click", () => ponPestana("desplegar"));
@@ -130,8 +133,14 @@ function dibujaMapa() {
     let marca, r;
     if (s.estrato === "a") {
       r = radio(s.denuncias);
-      el("circle", { class: "anillo" + (seMueve(s) ? " se-mueve" : ""), r: r * 1.4 + 4 }, g);
+      el("circle", { class: "anillo" + (seMueve(s) ? " se-mueve" : "") + (enPrioridad(s) ? " top-prioridad" : ""), r: r * 1.4 + 4 }, g);
       marca = forma(s, g);
+      if (enPrioridad(s)) {
+        // distintivo con el lugar por prioridad, arriba a la derecha del símbolo; solo se ve en modo prioridad (CSS)
+        const d = r * 1.33 + 3, gp = el("g", { class: "prio-distintivo", transform: `translate(${d.toFixed(1)} ${(-d).toFixed(1)})` }, g);
+        el("circle", { r: 7.5 }, gp);
+        el("text", { "text-anchor": "middle", dy: "0.36em" }, gp).textContent = s.pos_prioridad;
+      }
     } else if (s.estrato === "edomex") {
       r = 2.8;
       marca = el("circle", { class: "est est-edomex", r }, g);
@@ -145,14 +154,14 @@ function dibujaMapa() {
     marca.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); elige(s.nombre); } });
     marca.addEventListener("pointerenter", (ev) => muestraTooltip(ev, s));
     marca.addEventListener("pointerleave", () => ($("#tooltip").hidden = true));
-    // Rótulo: las distinguibles (con evidencia suficiente) y las dos anómalas. Primero las de más evidencia.
+    // Rótulo: las distinguibles (con evidencia suficiente) y las dos anómalas; en modo prioridad se ocultan (rotuloVisible).
     let rotulo = null;
     const conRotulo = s.estrato === "c" || (s.estrato === "a" && s.estatus !== "no" && !s.evidencia_insuficiente);
     if (conRotulo) {
       rotulo = el("text", { class: "rotulo" + (s.estrato === "c" ? " rotulo-c" : " rotulo-" + s.estatus) }, gt);
       rotulo.textContent = s.nombre.replace("/Plaza de la Transparencia", "").replace("/Poder Judicial CDMX", "").replace("/Tenochtitlan", "").replace("/Arena Ciudad de México", "");
     }
-    nodos.push({ s, g, r, rotulo, prioridad: s.estrato === "c" ? 1e6 : s.denuncias });
+    nodos.push({ s, g, r, rotulo });
   });
   // norte y aviso de que el plano no está a escala
   const gn = el("g", { class: "norte", id: "norte" }, svg);
@@ -174,8 +183,12 @@ function ponRotulos() {
   svg.style.setProperty("--filete", (8.2 * px).toFixed(2));
   const letra = Math.max(10.5, Math.min(13.5, (caja.height || 600) / 46)) * px;
   $("#norte").setAttribute("transform", `translate(${vista.x + 26 * px} ${vista.y + vista.h - 34 * px}) scale(${px.toFixed(3)})`);
-  const ocupados = nodos.map((n) => { const [x, y] = n.s.plano, d = n.re * 1.2; return [x - d, y - d, x + d, y + d]; });
-  [...nodos].filter((n) => n.rotulo).sort((a, b) => b.prioridad - a.prioridad).forEach((n) => {
+  // en modo prioridad el distintivo con el lugar ocupa más sitio alrededor del símbolo
+  nodos.forEach((n) => { const [x, y] = n.s.plano, d = n.re * (modo === "prioridad" && enPrioridad(n.s) ? 1.9 : 1.2); n.caja = [x - d, y - d, x + d, y + d]; });
+  const ocupados = nodos.map((n) => n.caja);
+  const peso = (n) => (n.s.estrato === "c" ? 1e6 : n.s.denuncias); // primero las anómalas, luego las de más evidencia
+  nodos.filter((n) => n.rotulo && !rotuloVisible(n.s)).forEach((n) => (n.rotulo.style.display = "none"));
+  [...nodos].filter((n) => n.rotulo && rotuloVisible(n.s)).sort((a, b) => peso(b) - peso(a)).forEach((n) => {
     const t = n.rotulo, [x, y] = n.s.plano;
     const w = t.textContent.length * letra * 0.57, h = letra * 1.15, sep = n.re * 1.45 + 2 * px;
     const opciones = [[x + sep, y + h * 0.35, "start"], [x - sep, y + h * 0.35, "end"], [x, y - sep - h * 0.1, "middle"], [x, y + sep + h * 0.8, "middle"],
@@ -185,8 +198,7 @@ function ponRotulos() {
       const x0 = ancla === "start" ? tx : ancla === "end" ? tx - w : tx - w / 2;
       const caja = [x0, ty - h * 0.82, x0 + w, ty + h * 0.22];
       const fuera = caja[0] < vista.x + 2 || caja[2] > vista.x + vista.w - 2 || caja[1] < vista.y + 2 || caja[3] > vista.y + vista.h - 2;
-      const propio = [x - n.re * 1.2, y - n.re * 1.2, x + n.re * 1.2, y + n.re * 1.2];
-      if (fuera || ocupados.some((o) => o.join() !== propio.join() && caja[0] < o[2] && caja[2] > o[0] && caja[1] < o[3] && caja[3] > o[1])) continue;
+      if (fuera || ocupados.some((o) => o !== n.caja && caja[0] < o[2] && caja[2] > o[0] && caja[1] < o[3] && caja[3] > o[1])) continue;
       t.setAttribute("x", tx.toFixed(1)); t.setAttribute("y", ty.toFixed(1)); t.setAttribute("text-anchor", ancla);
       t.style.fontSize = letra.toFixed(2) + "px"; t.style.strokeWidth = (letra * 0.3).toFixed(2) + "px"; t.style.display = "";
       ocupados.push(caja); puesto = true;
@@ -224,11 +236,17 @@ function dibujaLeyenda() {
     <span class="item"><svg width="34" height="16"><circle cx="6" cy="8" r="3.5" fill="#fff" stroke="#10233f"/><circle cx="23" cy="8" r="7.5" fill="#fff" stroke="#10233f"/></svg> denuncias</span>
     <span class="item">${cuad(false)} correspondencia</span>
     <span class="item">${cuad(true)} Hidalgo y Guerrero</span>
-    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="3" fill="#dfe6ec" stroke="#9aa7b3"/></svg> Edomex</span>`;
+    <span class="item"><svg width="16" height="16"><circle cx="8" cy="8" r="3" fill="#dfe6ec" stroke="#9aa7b3"/></svg> Edomex</span>
+    <span class="item solo-prioridad"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#10233f" stroke="#fff" stroke-width="1.3"/><text x="8" y="11.3" text-anchor="middle" fill="#fff" font-size="9" font-weight="800" font-family="inherit">7</text></svg> lugar por prioridad (20 primeras)</span>`;
 }
 
 /* ------------------------------------------------------------------ lista */
 const seMueve = (s) => !s.evidencia_insuficiente && Math.abs(s.cambio) > D.meta.umbral_de_cambio;
+// Las 20 primeras por prioridad (las que enseña la pestaña «Dónde desplegar»); nunca una de evidencia insuficiente.
+const enPrioridad = (s) => s.estrato === "a" && !s.evidencia_insuficiente && s.pos_prioridad <= 20;
+// Qué rótulos se ven en el plano: las anómalas siempre; en conteo y tasa, las distinguibles; en prioridad, ninguno más: el
+// lugar va en un distintivo numerado sobre el símbolo (con 20 nombres encimados solo cabían cuatro, y eran los de la orilla).
+const rotuloVisible = (s) => s.estrato === "c" || (modo !== "prioridad" && s.estatus !== "no");
 
 // Periodo: «todo» usa el modelo (tasa encogida); un año usa la tasa CRUDA de ese año con su intervalo de Byar.
 const MIN = () => D.meta.min_denuncias_para_recomendar;
@@ -244,6 +262,15 @@ function dibujaPeriodos() {
     b.setAttribute("aria-pressed", p === periodo);
     b.addEventListener("click", () => ponPeriodo(p));
     caja.appendChild(b);
+  });
+}
+
+// La prioridad se calcula con 2019–2024 completo (lugares del modelo): en un año suelto casi ninguna estación llega
+// a 15 denuncias, así que los años se apagan en ese modo.
+function ponPeriodosDisponibles() {
+  document.querySelectorAll("#periodos button").forEach((b, i) => {
+    b.disabled = i > 0 && modo === "prioridad";
+    b.title = b.disabled ? "La prioridad se calcula con 2019–2024 completo" : "";
   });
 }
 
@@ -268,7 +295,7 @@ function lugares(filas, valor) {
 function filasDelPeriodo() {
   const a = D.estaciones.filter((s) => s.estrato === "a");
   if (periodo === "todo") {
-    const clave = modo === "conteo" ? "pos_conteo" : "pos_encogida";
+    const clave = modo === "conteo" ? "pos_conteo" : modo === "tasa" ? "pos_encogida" : "pos_prioridad";
     const filas = a.sort((p, q) => p[clave] - q[clave] || q.denuncias - p.denuncias);
     return { filas, pos: new Map(filas.map((s) => [s.nombre, s[clave]])), total: filas.length };
   }
@@ -288,7 +315,8 @@ function dibujaLista() {
     ? `${periodo} · por ${modo === "conteo" ? "conteo" : "tasa cruda"} · ${total} estaciones abiertas`
     : `Por ${modo} · ${total} estaciones`;
   const suficientes = todas.filter((s) => !insuf(s)).length;
-  $("#lista-nota").textContent = anio ? `${suficientes} de ${total} con ${MIN()} denuncias o más en ${periodo}. El mapa sigue en 2019–2024.` : "";
+  $("#lista-nota").textContent = anio ? `${suficientes} de ${total} con ${MIN()} denuncias o más en ${periodo}. El mapa sigue en 2019–2024.`
+    : modo === "prioridad" ? `Lugar por conteo y lugar por tasa, promediados. Las ${total - suficientes} con menos de ${MIN()} denuncias van al final.` : "";
   ol.innerHTML = "";
   if (!filas.length) ol.innerHTML = `<li class="vacia">Ninguna estación tiene ${MIN()} denuncias o más en ${periodo}.</li>`;
   filas.forEach((s) => {
@@ -304,8 +332,9 @@ function dibujaLista() {
     const e = ESTATUS[s.estatus];
     const etiq = insuf(s) ? '<span class="etiqueta insuf">evidencia insuficiente</span>' : "";
     const [t, ic95] = anio ? [y.tasa_denuncias_mm, y.tasa_ic95] : [s.tasa_encogida_mm, s.tasa_encogida_ic95];
-    const val = modo === "conteo"
+    const val = modo === "conteo" || (modo === "prioridad" && insuf(s))
       ? `${num(anio ? y.denuncias : s.denuncias)} <small>denuncias</small>`
+      : modo === "prioridad" ? `<small>conteo</small> ${s.pos_conteo} <small>· tasa</small> ${s.pos_encogida}`
       : `${num(t, 2)} <small>(${num(ic95[0], 2)}–${num(ic95[1], 2)})</small>`;
     li.innerHTML = `<span class="pos">${pos.get(s.nombre)}<small> de ${total}</small></span><span class="glifo" title="${e.corto}">${insuf(s) ? "·" : e.glifo}</span><span class="nom">${esc(s.nombre)} ${etiq}${mov}</span><span class="val">${val}</span>`;
     li.addEventListener("click", () => elige(s.nombre, true));
@@ -327,11 +356,14 @@ function ponModo(m) {
   if (m === modo) return;
   modo = m;
   document.body.classList.toggle("modo-tasa", m === "tasa");
-  $("#btn-conteo").setAttribute("aria-pressed", m === "conteo");
-  $("#btn-tasa").setAttribute("aria-pressed", m === "tasa");
+  document.body.classList.toggle("modo-prioridad", m === "prioridad");
+  ["conteo", "tasa", "prioridad"].forEach((k) => $("#btn-" + k).setAttribute("aria-pressed", k === m));
   document.querySelectorAll(".anillo.se-mueve").forEach((a) => { a.style.animation = "none"; void a.getBoundingClientRect(); a.style.animation = ""; });
-  dibujaLista();
+  ponPeriodosDisponibles();
+  if (m === "prioridad" && periodo !== "todo") ponPeriodo("todo"); // la prioridad no existe por año; ponPeriodo redibuja
+  else dibujaLista();
   pintaAviso();
+  ponRotulos(); // los rótulos del plano cambian con el modo
 }
 
 // El aviso de cambio es del periodo completo (modelo): en un año suelto no aplica.
@@ -345,6 +377,12 @@ function pintaAviso() {
     a.innerHTML = `<strong>${mov.length} estaciones se mueven más de ${D.meta.umbral_de_cambio} lugares</strong>
       <br>Bajan: ${nombres(bajan)}
       <br>Suben ▲: ${nombres(suben)}`;
+  } else if (modo === "prioridad" && periodo === "todo") {
+    // Lo que cubrió cada lista en 2024 (elegidas con 2019–2023), sumado aquí de los mismos datos de «Dónde desplegar».
+    const cubre = (c) => { const l = D.desplegar.probadas[c].slice(0, 20); const d = l.reduce((x, f) => x + f.denuncias_2024, 0); return { d, t: d / l.reduce((x, f) => x + f.entradas_2024_M, 0) }; };
+    const p = cubre("propuesta"), c = cubre("conteo"), t = cubre("tasa");
+    a.innerHTML = `<strong>Prioridad: el promedio del lugar por conteo y del lugar por tasa</strong>, solo entre estaciones con ${MIN()} denuncias o más. Junta las que tienen muchas denuncias con las que tienen muchas por pasajero.
+      <br>Elegidas con 2019–2023, sus 20 primeras cubrieron en 2024 <b>${num(p.d)} denuncias a ${num(p.t, 2)} por millón de entradas</b>; las 20 por conteo, ${num(c.d)} a ${num(c.t, 2)}; las 20 por tasa, ${num(t.d)} a ${num(t.t, 2)}.`;
   } else a.innerHTML = "";
 }
 
@@ -638,7 +676,7 @@ function listasDesplegar() {
   return [
     { titulo: "Por conteo", sub: "más denuncias", filas: filas("conteo") },
     { titulo: "Por tasa", sub: "mayor tasa del modelo", filas: filas("tasa") },
-    { titulo: "La que proponemos", sub: P.regla_propuesta, filas: filas("propuesta") },
+    { titulo: "Prioridad", sub: "volumen y riesgo: " + P.regla_propuesta, filas: filas("propuesta") },
   ];
 }
 function botonesDesp(caja, opciones, actual, poner) {
@@ -670,7 +708,7 @@ function dibujaDesplegar() {
   $("#desp-selector").innerHTML = L.map((l, k) => `<button type="button" aria-pressed="${k === colDesplegar}" data-k="${k}">${l.titulo}</button>`).join("");
   $("#desp-selector").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { colDesplegar = +b.dataset.k; dibujaDesplegar(); }));
   // en teléfono se ve una lista a la vez: la comparación de lo que cubre cada una va en una tabla aparte
-  $("#desp-resumen").innerHTML = probadas ? `<table><thead><tr><th>En 2024</th>${L.map((l) => `<th>${l.titulo.replace("La que proponemos", "Propuesta")}</th>`).join("")}</tr></thead><tbody>
+  $("#desp-resumen").innerHTML = probadas ? `<table><thead><tr><th>En 2024</th>${L.map((l) => `<th>${l.titulo}</th>`).join("")}</tr></thead><tbody>
     <tr><th>Denuncias</th>${cub.map((c) => `<td>${num(c[0])}</td>`).join("")}</tr>
     <tr><th>Por millón</th>${cub.map((c) => `<td>${num(c[1], 2)}</td>`).join("")}</tr>
     <tr><th>Afluencia</th>${cub.map((c) => `<td>${num(c[2], 0)} M</td>`).join("")}</tr></tbody></table>` : "";
@@ -721,6 +759,7 @@ function fichaA(s) {
       ${cifra("× estación típica", num(s.razon_encogida, 2), `IC: ${ic(s.razon_encogida_ic95)}`)}
       ${cifra("Denuncias", num(s.denuncias), `IC: ${num(byar(s.denuncias)[0])} a ${num(byar(s.denuncias)[1])} · lugar ${s.pos_conteo}`)}
       ${cifra("Entradas", num(s.entradas_M, 1) + " M", "")}
+      ${cifra("Lugar por prioridad", s.evidencia_insuficiente ? "—" : num(s.pos_prioridad), s.evidencia_insuficiente ? "evidencia insuficiente: al final" : `promedio ${num(s.puntaje_prioridad, 1)} de conteo ${s.pos_conteo} y tasa ${s.pos_encogida}`)}
     </dl>
     <p class="lectura">${lectura}</p>
     ${serieSvg(s)}
